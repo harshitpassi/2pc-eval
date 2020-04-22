@@ -2,6 +2,8 @@ from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
 import math
 
+#TO-DO: Creating a client using this API. Also need to add client ID implementation.
+
 # Read the config file for a list of addresses for all the servers
 f = open("config", "r", encoding="utf-8")
 addresses = f.readlines()

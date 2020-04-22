@@ -2,6 +2,7 @@ from bottle import run, route, get, post, request, template, response
 from pymongo import MongoClient
 
 # Create a connection with local mongo db to serve as key-value store
+# TO-DO - update entries according to servers
 client = MongoClient("mongodb+srv://test:test@cluster0-cntdv.mongodb.net/test?retryWrites=true&w=majority&authSource=admin")
 db = client.get_database('test')
 collection = db.get_collection('store-1')
