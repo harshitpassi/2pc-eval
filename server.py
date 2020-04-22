@@ -1,5 +1,6 @@
 from bottle import run, route, get, post, request, template, response
 from pymongo import MongoClient
+import json
 
 # Create a connection with local mongo db to serve as key-value store
 # TO-DO - update entries according to servers
@@ -10,13 +11,14 @@ collection = db.get_collection('store-1')
 # Write protocol => if entry exists, update it, otherwise create a new key-value pair
 @post('/kv/write')
 def create_kv():
-    data = request.query
+    data = json.loads(request.body.read().decode('utf-8'))
+    print(data)
     # Check if key exists and insert
     if not collection.find_one({'key': int(data['key'])}, {'_id': 0}):
-        collection.insert_one({'key': int(data['key']), 'value': data['value'], 'ts': int(data['ts'])})
+        collection.insert_one({'key': int(data['key']), 'value': data['value'], 'ts': {'id': int(data['ts']['id']), 'integer': int(data['ts']['integer'])}})
         return 0
     else:
-        collection.find_one_and_update({'key': int(data['key'])}, {'$set': {'value': data['value'], 'ts': int(data['ts'])}})
+        collection.find_one_and_update({'key': int(data['key'])}, {'$set': {'value': data['value'], 'ts': {'id': int(data['ts']['id']), 'integer': int(data['ts']['integer'])}}})
         return 0
 
 # Read protocol => If key exists, send an item, otherwise send a blank object
