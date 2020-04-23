@@ -2,10 +2,8 @@ from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
 import math
 
-#TO-DO: Creating a client driver using this API.
-
 # Hardcoded per client unique ID
-client_id = 'A'
+client_id = 1
 
 # Read the config file for a list of addresses for all the servers
 f = open("config", "r", encoding="utf-8")
@@ -102,11 +100,9 @@ def read(key):
         # Return the latest item's value
         return latest_item['value']
 
-print(read(0))
-
 while True:
     print("Enter what you would like to do: ")
-    print("1. Store/update a key,value \n 2. Read a key value \n ""3. Exit")
+    print(" 1. Store/update a key,value \n 2. Read a key value \n ""3. Exit")
     message = int(input())  # Take in the option for process to be executed
 
     if 0 < message < 4:
