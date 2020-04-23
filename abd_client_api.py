@@ -4,6 +4,9 @@ import math
 
 #TO-DO: Creating a client driver using this API.
 
+# Hardcoded per client unique ID
+client_id = 'A'
+
 # Read the config file for a list of addresses for all the servers
 f = open("config", "r", encoding="utf-8")
 addresses = f.readlines()
@@ -15,6 +18,7 @@ if(num_servers%2 == 0):
     final_count = num_servers/2 + 1
 else:
     final_count = math.ceil(num_servers/2)
+
 
 # Handler function to query all servers and get the latest item, for the first phase of reads and writes 
 def query_all_servers(key, session, count=0):
@@ -38,6 +42,7 @@ def query_all_servers(key, session, count=0):
         elif(timestamp_response == latest_item.get("ts", {}).get("integer", 0) and timestamp_client > latest_item.get("ts", {}).get("id", 0)):
             latest_item = response
     return latest_item
+
 
 def write(key, value, client_id):
     count = 0
@@ -65,6 +70,7 @@ def write(key, value, client_id):
                 print("Majority ACKs received")
                 break
     return "Success"
+
 
 def read(key):
     count = 0
@@ -97,3 +103,29 @@ def read(key):
         return latest_item['value']
 
 print(read(0))
+
+while True:
+    print("Enter what you would like to do: ")
+    print("1. Store/update a key,value \n 2. Read a key value \n ""3. Exit")
+    message = int(input())  # Take in the option for process to be executed
+
+    if 0 < message < 4:
+
+        if message == 1:
+            # Input for key,value to be stored/ updated at datastore
+            key = input("Enter key name: ")
+            value = input("Enter value/message to be stored against key: ")
+            status = write(key, value, client_id)
+            print(status)
+
+        elif message == 2:
+            # Enter key for search at data store
+            key = input("Enter key name to be read: ")
+            value = read(key)
+            print("Value read for Key: ", key, " is Value: ", value)
+
+        elif message == 3:
+            print("End of execution session")
+            break
+    else:
+        print("Invalid Option, try again")
