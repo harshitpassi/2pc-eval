@@ -9,7 +9,8 @@ db = client.get_database('test')
 collection = db.get_collection('store-1')
 
 # Declaring server ID according to config
-server_id = 1
+print("Enter server ID: (make sure it matches the order in the client config, line: 1 -> server ID:1)")
+server_id = int(input())
 
 # ********************** Read/Write protocol implementation start (Common for ABD and Blocking protocols) **********************
 
