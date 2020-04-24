@@ -37,6 +37,19 @@ def query_majority_servers(key, majority_addresses, session):
             latest_item = response
     return latest_item
 
+# Handler function to release acquired locks
+def release_all_locks(key, session):
+    # Release locks
+    unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
+    count=0
+    for future in as_completed(unlock_futures):
+        count += 1
+        if(count <= final_count):
+            print(future.result())
+        else:
+            print("Majority ACKs received")
+            break
+
 
 def write(key, value):
     count = 0
@@ -45,7 +58,7 @@ def write(key, value):
     with FuturesSession() as session:
 
         # Acquire write locks from majority and save their server IDs in an array
-        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_write_lock/{}".format(key), params={'id': client_id}) for address in addresses]
+        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
         # Handle the calls as they are completed, breaking when the majority number has been reached
         for future in as_completed(lock_futures):
             count += 1
@@ -57,6 +70,8 @@ def write(key, value):
         server_granting_locks = [x['result'] for x in server_granting_locks]
         if False in server_granting_locks:
             print('Unable to acquire lock from majority. Please try again.')
+            # Release locks
+            release_all_locks(key, session)
             return None
         majority_addresses = []
         for index in server_granting_locks:
@@ -74,16 +89,20 @@ def write(key, value):
             }
         }
         # Initialize list of write API calls, to send updated values to all servers, sent simultaneously
-        request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in majority_addresses]
+        request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         # Receive responses from majority servers
+        count=0
+        # Break after receiving responses from the majority quorum
         for future in as_completed(request_futures):
-            print(future.result())
+            count += 1
+            if(count <= final_count):
+                print(future.result())
+            else:
+                print("Majority ACKs received")
+                break
         
-
         # Release locks
-        unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_write_lock/{}".format(key)) for address in addresses]
-        for future in as_completed(unlock_futures):
-            print(future.result())
+        release_all_locks(key, session)
 
     return "Success"
 
@@ -95,7 +114,7 @@ def read(key):
     with FuturesSession() as session:
 
         # Acquire read locks from majority and save their server IDs in an array
-        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_read_lock/{}".format(key), params={'id': client_id}) for address in addresses]
+        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
         # Handle the calls as they are completed, breaking when the majority number has been reached
         for future in as_completed(lock_futures):
             count += 1
@@ -107,6 +126,8 @@ def read(key):
         server_granting_locks = [x['result'] for x in server_granting_locks]
         if False in server_granting_locks:
             print('Unable to acquire lock from majority. Please try again.')
+            # Release locks
+            release_all_locks(key, session)
             return None
         majority_addresses = []
         for index in server_granting_locks:
@@ -117,10 +138,31 @@ def read(key):
         latest_item = query_majority_servers(key, majority_addresses, session)
         print(latest_item)
 
+        # Update servers with latest item
+        # Create a payload with the latest item
+        payload = {
+            'key': latest_item['key'],
+            'value': latest_item['value'],
+            'ts': {
+                'id': latest_item.get("ts", {}).get("id", 0),
+                'integer': latest_item.get("ts", {}).get("integer", 0)
+            }
+        }
+
+        # Initialize list of write API calls, to send the latest item to all servers, sent simultaneously
+        request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
+        count=0
+        # Handle the calls as they are completed, breaking when the majority number has been reached
+        for future in as_completed(request_futures):
+            count += 1
+            if(count <= final_count):
+                print(future.result())
+            else:
+                print("Majority ACKs received")
+                break
+
         # Release locks
-        unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_read_lock/{}".format(key)) for address in addresses]
-        for future in as_completed(unlock_futures):
-            print(future.result())
+        release_all_locks(key, session)
 
         # Return the latest item's value
         return latest_item['value']

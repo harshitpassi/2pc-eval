@@ -35,52 +35,24 @@ def read_kv(key):
     return result
 
 # ********************** Blocking protocol implementation start **********************
-# maps to store per key locks for clients => shared lock for reads, exclusive lock for writes
-write_lock_map = {}
-read_lock_map = {}
+# map to store per key locks for clients
+lock_map = {}
 
-# Checks if write_lock_map and read_lock_map contains key, if not, adds it and returns true, otherwise returns false
-@get('/kv/blocking/acquire_write_lock/<key>')
+# Checks if lock_map contains key, if not, adds it and returns server id, otherwise returns false
+@get('/kv/blocking/acquire_lock/<key>')
 def acquire_write_lock(key):
     client_id = request.query.id
-    if write_lock_map.get(str(key), None) == None and read_lock_map.get(str(key), None) == None :
-        write_lock_map[str(key)] = client_id
+    if lock_map.get(str(key), None) == None :
+        lock_map[str(key)] = client_id
         return {'result': server_id}
     else:
         return {'result': False}
 
-# Checks if write_lock_map contains key, if not, adds it to read_lock_map and returns true, otherwise returns false
-@get('/kv/blocking/acquire_read_lock/<key>')
-def acquire_read_lock(key):
-    client_id = request.query.id
-    new_key_lock = []
-    if write_lock_map.get(str(key), None) == None :
-        if read_lock_map.get(str(key), None) == None :
-            new_key_lock.append(client_id)
-        else:
-            new_key_lock = read_lock_map.get(str(key), []).append(client_id)
-        read_lock_map[str(key)] = new_key_lock
-        return {'result': server_id}
-    else:
-        return {'result': False}
-
-# Releases write lock by deleting entry in write_lock_map
-@get('/kv/blocking/release_write_lock/<key>')
+# Releases lock by deleting entry in lock_map
+@get('/kv/blocking/release_lock/<key>')
 def release_write_lock(key):
-    if write_lock_map.get(str(key), None) != None :
-        del write_lock_map[str(key)]
-        return {'result': True}
-    else:
-        return {'result': False}
-
-# Releases read lock by removing array element in shared lock. If array is empty, deletes the key from lock entirely
-@get('/kv/blocking/release_read_lock/<key>')
-def release_read_lock(key):
-    client_id = request.query.id
-    if client_id in read_lock_map.get(str(key), []):
-        read_lock_map[str(key)].remove(client_id)
-        if len(read_lock_map[str(key)] == 0):
-            del read_lock_map[str(key)]
+    if lock_map.get(str(key), None) != None :
+        del lock_map[str(key)]
         return {'result': True}
     else:
         return {'result': False}
