@@ -45,7 +45,7 @@ def write(key, value):
     with FuturesSession() as session:
 
         # Acquire write locks from majority and save their server IDs in an array
-        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_write_lock/{}".format(key), params={'id': client_id}) for address in addresses]
+        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
         # Handle the calls as they are completed, breaking when the majority number has been reached
         for future in as_completed(lock_futures):
             count += 1
@@ -74,16 +74,29 @@ def write(key, value):
             }
         }
         # Initialize list of write API calls, to send updated values to all servers, sent simultaneously
-        request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in majority_addresses]
+        request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         # Receive responses from majority servers
+        count=0
+        # Break after receiving responses from the majority quorum
         for future in as_completed(request_futures):
-            print(future.result())
+            count += 1
+            if(count <= final_count):
+                print(future.result())
+            else:
+                print("Majority ACKs received")
+                break
         
 
         # Release locks
-        unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_write_lock/{}".format(key)) for address in addresses]
+        unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
+        count=0
         for future in as_completed(unlock_futures):
-            print(future.result())
+            count += 1
+            if(count <= final_count):
+                print(future.result())
+            else:
+                print("Majority ACKs received")
+                break
 
     return "Success"
 
@@ -95,7 +108,7 @@ def read(key):
     with FuturesSession() as session:
 
         # Acquire read locks from majority and save their server IDs in an array
-        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_read_lock/{}".format(key), params={'id': client_id}) for address in addresses]
+        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
         # Handle the calls as they are completed, breaking when the majority number has been reached
         for future in as_completed(lock_futures):
             count += 1
@@ -117,10 +130,39 @@ def read(key):
         latest_item = query_majority_servers(key, majority_addresses, session)
         print(latest_item)
 
-        # Release locks
-        unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_read_lock/{}".format(key)) for address in addresses]
+        # Update servers with latest item
+        # Create a payload with the latest item
+        payload = {
+            'key': latest_item['key'],
+            'value': latest_item['value'],
+            'ts': {
+                'id': latest_item.get("ts", {}).get("id", 0),
+                'integer': latest_item.get("ts", {}).get("integer", 0)
+            }
+        }
+
+        # Initialize list of write API calls, to send the latest item to all servers, sent simultaneously
+        request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
+        count=0
+        # Handle the calls as they are completed, breaking when the majority number has been reached
+        for future in as_completed(request_futures):
+            count += 1
+            if(count <= final_count):
+                print(future.result())
+            else:
+                print("Majority ACKs received")
+                break
+
+        # Release locks, return after receiving responses from majority
+        unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
+        count=0
         for future in as_completed(unlock_futures):
-            print(future.result())
+            count += 1
+            if(count <= final_count):
+                print(future.result())
+            else:
+                print("Majority ACKs received")
+                break
 
         # Return the latest item's value
         return latest_item['value']
