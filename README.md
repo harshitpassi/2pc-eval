@@ -5,7 +5,8 @@
 2. Go into the project directory and run `pipenv install`
 3. Once the dependencies have finished installing, run `pipenv shell`
 4. Then you can run `python server.py` to run the server.
-5. Client instructions coming soon.
+5. If you're running a client instead, then run `python <client_file_name>.py`
+6. There are two clients offered: ABD and Blocking
 
 ## Mongo KVStore API
 ### Write KV Pair
