@@ -1,5 +1,6 @@
 from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
+from utilities import retry_with_backoff
 import math
 
 # Hardcoded per client unique ID
@@ -179,13 +180,28 @@ while True:
             key = input("Enter key name: ")
             value = input("Enter value/message to be stored against key: ")
             status = write(key, value)
-            print(status)
+            # None returned (locked)
+            if not status:
+                status = retry_with_backoff(write, key, value)
+                if not status:
+                    print("Operation unsucessful")
+                else:
+                    print(status)
+            else:
+                print(status)
 
         elif message == 2:
             # Enter key for search at data store
             key = input("Enter key name to be read: ")
             value = read(key)
-            print("Value read for Key: ", key, " is Value: ", value)
+            if not value:
+                value = retry_with_backoff(read, key)
+                if not value:
+                    print("Operation unsucessful")
+                else:
+                    print("Value read for Key: ", key, " is Value: ", value)
+            else:
+                print("Value read for Key: ", key, " is Value: ", value)
 
         elif message == 3:
             print("End of execution session")
