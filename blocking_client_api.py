@@ -37,6 +37,19 @@ def query_majority_servers(key, majority_addresses, session):
             latest_item = response
     return latest_item
 
+# Handler function to release acquired locks
+def release_all_locks(key, session):
+    # Release locks
+    unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
+    count=0
+    for future in as_completed(unlock_futures):
+        count += 1
+        if(count <= final_count):
+            print(future.result())
+        else:
+            print("Majority ACKs received")
+            break
+
 
 def write(key, value):
     count = 0
@@ -57,6 +70,8 @@ def write(key, value):
         server_granting_locks = [x['result'] for x in server_granting_locks]
         if False in server_granting_locks:
             print('Unable to acquire lock from majority. Please try again.')
+            # Release locks
+            release_all_locks(key, session)
             return None
         majority_addresses = []
         for index in server_granting_locks:
@@ -86,17 +101,8 @@ def write(key, value):
                 print("Majority ACKs received")
                 break
         
-
         # Release locks
-        unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
-        count=0
-        for future in as_completed(unlock_futures):
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-            else:
-                print("Majority ACKs received")
-                break
+        release_all_locks(key, session)
 
     return "Success"
 
@@ -120,6 +126,8 @@ def read(key):
         server_granting_locks = [x['result'] for x in server_granting_locks]
         if False in server_granting_locks:
             print('Unable to acquire lock from majority. Please try again.')
+            # Release locks
+            release_all_locks(key, session)
             return None
         majority_addresses = []
         for index in server_granting_locks:
@@ -153,16 +161,8 @@ def read(key):
                 print("Majority ACKs received")
                 break
 
-        # Release locks, return after receiving responses from majority
-        unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
-        count=0
-        for future in as_completed(unlock_futures):
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-            else:
-                print("Majority ACKs received")
-                break
+        # Release locks
+        release_all_locks(key, session)
 
         # Return the latest item's value
         return latest_item['value']
