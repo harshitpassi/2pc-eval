@@ -12,6 +12,11 @@ collection = db.get_collection('store-1')
 print("Enter server ID: (make sure it matches the order in the client config, line: 1 -> server ID:1)")
 server_id = int(input())
 
+
+@get('/')
+def home():
+    return {"result": "API Reachable" }
+
 # ********************** Read/Write protocol implementation start (Common for ABD and Blocking protocols) **********************
 
 # Write protocol => if entry exists, update it, otherwise create a new key-value pair
