@@ -56,6 +56,7 @@ def write(key, value, client_id):
                 'integer': latest_item.get("ts", {}).get("integer", 0) + 1
             }
         }
+
         # Initialize list of write API calls, to send updated values to all servers, sent simultaneously
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
@@ -100,6 +101,10 @@ def read(key):
         # Return the latest item's value
         return latest_item['value']
 
+
+edn_file = open('abd_log.edn', 'w')
+log = []
+
 while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n ""3. Exit")
@@ -111,16 +116,28 @@ while True:
             # Input for key,value to be stored/ updated at datastore
             key = input("Enter key name: ")
             value = input("Enter value/message to be stored against key: ")
+            log.append("{{:process {id}, :type :invoke, :f write, :value {val}}}".format(id=client_id, val=value))
             status = write(key, value, client_id)
+            if status:
+                log.append("{{:process {id}, :type :ok, :f write, :value {val}}}".format(id=client_id, val=value))
+            else:
+                log.append("{{:process {id}, :type :fail, :f write, :value {val}}}".format(id=client_id, val=value))
             print(status)
 
         elif message == 2:
             # Enter key for search at data store
             key = input("Enter key name to be read: ")
+            log.append("{{:process {id}, :type :invoke, :f read, :value nil}}".format(id=client_id))
             value = read(key)
+            if value:
+                log.append("{{:process {id}, :type :ok, :f read, :value {val}}}".format(id=client_id, val=value))
+            else:
+                log.append("{{:process {id}, :type :fail, :f read, :value nil}}".format(id=client_id))
             print("Value read for Key: ", key, " is Value: ", value)
 
         elif message == 3:
+            log = '\n'.join(log)
+            edn_file.write(log)
             print("End of execution session")
             break
     else:

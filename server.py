@@ -4,7 +4,7 @@ import json
 
 # Create a connection with local mongo db to serve as key-value store
 # TO-DO - update entries according to servers
-client = MongoClient()
+client = MongoClient(host="3.17.27.222")
 db = client.get_database('test')
 collection = db.get_collection('store-1')
 
@@ -15,7 +15,7 @@ server_id = int(input())
 
 @get('/')
 def home():
-    return {"result": "API Reachable" }
+    return {"result": "API Reachable"}
 
 # ********************** Read/Write protocol implementation start (Common for ABD and Blocking protocols) **********************
 
