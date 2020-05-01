@@ -29,7 +29,19 @@ def create_kv():
         collection.insert_one({'key': data['key'], 'value': data['value'], 'ts': {'id': int(data['ts']['id']), 'integer': int(data['ts']['integer'])}})
         return 0
     else:
-        collection.find_one_and_update({'key': data['key']}, {'$set': {'value': data['value'], 'ts': {'id': int(data['ts']['id']), 'integer': int(data['ts']['integer'])}}})
+        old_ts = collection.find_one({'key': data['key']},  {'_id': 0})
+        timestamp_response = old_ts.get("ts", {}).get("integer", 0)
+        timestamp_client = old_ts.get("ts", {}).get("id", 0)
+        if timestamp_response < data.get("ts", {}).get("integer", 0):
+            collection.find_one_and_update({'key': data['key']}, {'$set': {'value': data['value'],
+                                                                           'ts': {'id': int(data['ts']['id']),
+                                                                                  'integer': int(
+                                                                                      data['ts']['integer'])}}})
+        elif(timestamp_response == data.get("ts", {}).get("integer", 0) and timestamp_client < data.get("ts", {}).get("id", 0)):
+            collection.find_one_and_update({'key': data['key']}, {'$set': {'value': data['value'],
+                                                                           'ts': {'id': int(data['ts']['id']),
+                                                                                  'integer': int(
+                                                                                      data['ts']['integer'])}}})
         return 0
 
 # Read protocol => If key exists, send an item, otherwise send a blank object
