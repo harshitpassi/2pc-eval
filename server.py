@@ -4,7 +4,7 @@ import json
 
 # Create a connection with local mongo db to serve as key-value store
 # TO-DO - update entries according to servers
-client = MongoClient(host="3.17.27.222")
+client = MongoClient()
 db = client.get_database('test')
 collection = db.get_collection('store-1')
 
