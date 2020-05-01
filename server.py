@@ -81,4 +81,4 @@ def delete_handler(key):
     collection.delete_one({'key': int(key)})
     return 0
 
-run(host='localhost', port=8080)
+run(host='0.0.0.0', port=8080)
