@@ -4,7 +4,7 @@ from utilities import retry_with_backoff
 import math, random, time
 
 # Hardcoded per client unique ID
-client_id = 1
+client_id = 3
 
 # Read the config file for a list of addresses for all the servers
 f = open("config", "r", encoding="utf-8")

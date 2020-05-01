@@ -1,10 +1,9 @@
 from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
-from utilities import retry_with_backoff
 import math, random, time
 
 # Hardcoded per client unique ID
-client_id = 1
+client_id = 2
 
 # Read the config file for a list of addresses for all the servers
 f = open("config", "r", encoding="utf-8")
@@ -19,15 +18,19 @@ else:
     final_count = math.ceil(num_servers/2)
 
 
-# Handler function to query a majority of servers and get the latest item, for the first phase of reads and writes 
-def query_majority_servers(key, majority_addresses, session):
+# Handler function to query all servers and get the latest item, for the first phase of reads and writes 
+def query_all_servers(key, session, count=0):
     responses = []
     latest_item = {}
     # Initialize list of read API calls, to get current timestamps in each server, all sent simultaneously
-    response_futures = [session.get(address.rstrip() + "kv/read/{}".format(key)) for address in majority_addresses]
-    # Handle the calls as they are completed
+    response_futures = [session.get(address.rstrip() + "kv/read/{}".format(key)) for address in addresses]
+    # Handle the calls as they are completed, breaking when the majority number has been reached
     for future in as_completed(response_futures):
-        responses.append(future.result().json())
+        count += 1
+        if(count <= final_count):
+            responses.append(future.result().json())
+        else:
+            break
     # Get the latest item from the received responses
     for response in responses:
         timestamp_response = response.get("ts", {}).get("integer", 0)
@@ -38,50 +41,13 @@ def query_majority_servers(key, majority_addresses, session):
             latest_item = response
     return latest_item
 
-# Handler function to release acquired locks
-def release_all_locks(key, session):
-    # Release locks
-    unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
-    count=0
-    for future in as_completed(unlock_futures):
-        count += 1
-        if(count <= final_count):
-            print(future.result())
-        else:
-            print("Majority ACKs received")
-            break
-
 
 def write(key, value):
     count = 0
-    server_granting_locks = []
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession() as session:
-
-        # Acquire write locks from majority and save their server IDs in an array
-        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
-        # Handle the calls as they are completed, breaking when the majority number has been reached
-        for future in as_completed(lock_futures):
-            count += 1
-            if(count <= final_count):
-                server_granting_locks.append(future.result().json())
-                print(future.result().json())
-            else:
-                break
-        server_granting_locks = [x['result'] for x in server_granting_locks]
-        if False in server_granting_locks:
-            print('Unable to acquire lock from majority. Please try again.')
-            # Release locks
-            release_all_locks(key, session)
-            log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
-            return None
-        majority_addresses = []
-        for index in server_granting_locks:
-            majority_addresses.append(addresses[index-1])
-
-        latest_item = query_majority_servers(key, majority_addresses, session)
-
-        # Create a request payload
+        latest_item = query_all_servers(key, session)
+        # Create a request payload with an updated timestamp
         payload = {
             'key': key,
             'value': value,
@@ -90,9 +56,9 @@ def write(key, value):
                 'integer': latest_item.get("ts", {}).get("integer", 0) + 1
             }
         }
+
         # Initialize list of write API calls, to send updated values to all servers, sent simultaneously
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
-        # Receive responses from majority servers
         count=0
         # Break after receiving responses from the majority quorum
         for future in as_completed(request_futures):
@@ -102,45 +68,18 @@ def write(key, value):
             else:
                 print("Majority ACKs received")
                 break
-        # Release locks
-        release_all_locks(key, session)
-    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+        log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     return "Success"
 
 
 def read(key):
     count = 0
-    server_granting_locks = []
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession() as session:
-
-        # Acquire read locks from majority and save their server IDs in an array
-        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
-        # Handle the calls as they are completed, breaking when the majority number has been reached
-        for future in as_completed(lock_futures):
-            count += 1
-            if(count <= final_count):
-                server_granting_locks.append(future.result().json())
-                print(future.result().json())
-            else:
-                break
-        server_granting_locks = [x['result'] for x in server_granting_locks]
-        if False in server_granting_locks:
-            print('Unable to acquire lock from majority. Please try again.')
-            # Release locks
-            release_all_locks(key, session)
-            log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :fail, :f :read, :value nil}}\n".format(id=client_id))
-            return None
-        majority_addresses = []
-        for index in server_granting_locks:
-            majority_addresses.append(addresses[index-1])
-
-
         # Get the item with the latest timestamp
-        latest_item = query_majority_servers(key, majority_addresses, session)
+        latest_item = query_all_servers(key, session)
         print(latest_item)
-
-        # Update servers with latest item
+        log_output("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         # Create a payload with the latest item
         payload = {
             'key': latest_item['key'],
@@ -150,7 +89,6 @@ def read(key):
                 'integer': latest_item.get("ts", {}).get("integer", 0)
             }
         }
-
         # Initialize list of write API calls, to send the latest item to all servers, sent simultaneously
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
@@ -162,18 +100,13 @@ def read(key):
             else:
                 print("Majority ACKs received")
                 break
-
-        # Release locks
-        release_all_locks(key, session)
-
         # Return the latest item's value
-        log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         return latest_item['value']
 
 
 def log_output(log):
     edn_file = open(str(client_id)+'abd_log.edn', 'a+')
-    edn_file.write(log)
+    edn_file.write(str(time.time()) + ' : ' + log)
     edn_file.close()
 
 
@@ -212,15 +145,15 @@ while True:
             break
 
         elif message == 4:
-            for i in range(20):
+            for i in range(5):
                 op = random.choice([1, 2])
                 if op == 1:
                     value = random.randrange(1, 1000)
-                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+                    log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
                     status = write('test', value)
                     print(status)
                 else:
-                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
+                    log_output("{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
                     value = read("test")
                     print("Value read for Key: ", "test", " is Value: ", value)
             break

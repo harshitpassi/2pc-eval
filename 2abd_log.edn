@@ -1,0 +1,10 @@
+1588367004.965281 : {:process 2, :type :invoke, :f :read, :value nil}
+1588367005.1119769 : {:process 2, :type :ok, :f :read, :value 272}
+1588367005.2522821 : {:process 2, :type :invoke, :f :read, :value nil}
+1588367005.324123 : {:process 2, :type :ok, :f :read, :value 215}
+1588367005.3998551 : {:process 2, :type :invoke, :f :write, :value 230}
+1588367005.538497 : {:process 2, :type :ok, :f :write, :value 230}
+1588367005.539894 : {:process 2, :type :invoke, :f :write, :value 525}
+1588367005.676149 : {:process 2, :type :ok, :f :write, :value 525}
+1588367005.677753 : {:process 2, :type :invoke, :f :read, :value nil}
+1588367005.742836 : {:process 2, :type :ok, :f :read, :value 912}
