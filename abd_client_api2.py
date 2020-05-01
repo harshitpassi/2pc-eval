@@ -61,14 +61,20 @@ def write(key, value):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Break after receiving responses from the majority quorum
+        server_writing_value = []
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
                 print(future.result())
+                server_writing_value.append(future.result().json())
             else:
                 print("Majority ACKs received")
+                server_writing_value = [x['result'] for x in server_writing_value]
+                if False in server_writing_value:
+                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+                    return "Failed to write value, please try again."
                 break
-        log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+    log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
     return "Success"
 
 
@@ -145,16 +151,16 @@ while True:
             break
 
         elif message == 4:
-            for i in range(5):
+            for i in range(67):
                 op = random.choice([1, 2])
                 if op == 1:
                     value = random.randrange(1, 1000)
                     log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
-                    status = write('test', value)
+                    status = write('test1', value)
                     print(status)
                 else:
                     log_output("{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
-                    value = read("test")
+                    value = read("test1")
                     print("Value read for Key: ", "test", " is Value: ", value)
             break
 
