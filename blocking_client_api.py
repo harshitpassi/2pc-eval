@@ -170,11 +170,9 @@ def read(key):
         log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         return latest_item['value']
 
-
+edn_file = open(str(client_id)+'blocking_log.edn', 'a+')
 def log_output(log):
-    edn_file = open(str(client_id)+'abd_log.edn', 'a+')
     edn_file.write(log)
-    edn_file.close()
 
 
 while True:
@@ -212,7 +210,7 @@ while True:
             break
 
         elif message == 4:
-            for i in range(20):
+            for i in range(167):
                 op = random.choice([1, 2])
                 if op == 1:
                     value = random.randrange(1, 1000)
@@ -223,6 +221,7 @@ while True:
                     log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
                     value = read("test")
                     print("Value read for Key: ", "test", " is Value: ", value)
+            edn_file.close()
             break
 
     else:

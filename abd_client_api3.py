@@ -71,7 +71,7 @@ def write(key, value):
                 print("Majority ACKs received")
                 server_writing_value = [x['result'] for x in server_writing_value]
                 if False in server_writing_value:
-                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+                    log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
                     return "Failed to write value, please try again."
                 break
     log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
@@ -85,7 +85,6 @@ def read(key):
         # Get the item with the latest timestamp
         latest_item = query_all_servers(key, session)
         print(latest_item)
-        log_output("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         # Create a payload with the latest item
         payload = {
             'key': latest_item['key'],
@@ -99,14 +98,21 @@ def read(key):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Handle the calls as they are completed, breaking when the majority number has been reached
+        server_writing_value = []
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
                 print(future.result())
+                server_writing_value.append(future.result().json())
             else:
                 print("Majority ACKs received")
+                server_writing_value = [x['result'] for x in server_writing_value]
+                if False in server_writing_value:
+                    log_output("{{:process {id}, :type :fail, :f :read, :value nil}}\n".format(id=client_id))
+                    return None
                 break
         # Return the latest item's value
+        log_output("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         return latest_item['value']
 
 
