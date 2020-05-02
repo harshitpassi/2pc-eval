@@ -43,6 +43,7 @@ def query_all_servers(key, session, count=0):
 
 
 def write(key, value):
+    log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession() as session:
@@ -79,12 +80,14 @@ def write(key, value):
 
 
 def read(key):
+    log_output("{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession() as session:
         # Get the item with the latest timestamp
         latest_item = query_all_servers(key, session)
         print(latest_item)
+        log_output("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         # Create a payload with the latest item
         payload = {
             'key': latest_item['key'],
@@ -99,6 +102,7 @@ def read(key):
         count=0
         # Handle the calls as they are completed, breaking when the majority number has been reached
         server_writing_value = []
+        log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
@@ -108,11 +112,12 @@ def read(key):
                 print("Majority ACKs received")
                 server_writing_value = [x['result'] for x in server_writing_value]
                 if False in server_writing_value:
-                    log_output("{{:process {id}, :type :fail, :f :read, :value nil}}\n".format(id=client_id))
+                    log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
                     return None
+                else:
+                    log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))        
                 break
         # Return the latest item's value
-        log_output("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         return latest_item['value']
 
 
@@ -159,13 +164,14 @@ while True:
         elif message == 4:
             for i in range(67):
                 op = random.choice([1, 2])
+                value = random.randrange(1, 1000)
+                status = write('test1', value)
+                print(status)
                 if op == 1:
                     value = random.randrange(1, 1000)
-                    log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
                     status = write('test1', value)
                     print(status)
                 else:
-                    log_output("{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
                     value = read("test1")
                     print("Value read for Key: ", "test", " is Value: ", value)
             break
