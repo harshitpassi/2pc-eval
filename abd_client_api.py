@@ -162,10 +162,10 @@ while True:
             break
 
         elif message == 4:
-            for i in range(67):
+            value = random.randrange(1, 1000)
+            status = write('test1', value)
+            for i in range(167):
                 op = random.choice([1, 2])
-                value = random.randrange(1, 1000)
-                status = write('test1', value)
                 print(status)
                 if op == 1:
                     value = random.randrange(1, 1000)

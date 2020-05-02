@@ -1,9 +1,9 @@
 from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
-import math, random
+import math, random, time
 
 # Hardcoded per client unique ID
-client_id = 6
+client_id = 7
 
 # Read the config file for a list of addresses for all the servers
 f = open("config", "r", encoding="utf-8")
@@ -42,7 +42,8 @@ def query_all_servers(key, session, count=0):
     return latest_item
 
 
-def write(key, value, client_id):
+def write(key, value):
+    log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession() as session:
@@ -61,23 +62,32 @@ def write(key, value, client_id):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Break after receiving responses from the majority quorum
+        server_writing_value = []
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
                 print(future.result())
+                server_writing_value.append(future.result().json())
             else:
                 print("Majority ACKs received")
+                server_writing_value = [x['result'] for x in server_writing_value]
+                if False in server_writing_value:
+                    log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+                    return "Failed to write value, please try again."
                 break
+    log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
     return "Success"
 
 
 def read(key):
+    log_output("{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession() as session:
         # Get the item with the latest timestamp
         latest_item = query_all_servers(key, session)
         print(latest_item)
+        log_output("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         # Create a payload with the latest item
         payload = {
             'key': latest_item['key'],
@@ -91,19 +101,32 @@ def read(key):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Handle the calls as they are completed, breaking when the majority number has been reached
+        server_writing_value = []
+        log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
                 print(future.result())
+                server_writing_value.append(future.result().json())
             else:
                 print("Majority ACKs received")
+                server_writing_value = [x['result'] for x in server_writing_value]
+                if False in server_writing_value:
+                    log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
+                    return None
+                else:
+                    log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))        
                 break
         # Return the latest item's value
         return latest_item['value']
 
 
-edn_file = open('abd_log.edn', 'a+')
-log=[]
+def log_output(log):
+    edn_file = open(str(client_id)+'abd_log.edn', 'a+')
+    edn_file.write(str(time.time()) + ' : ' + log)
+    edn_file.close()
+
+
 while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run")
@@ -115,52 +138,43 @@ while True:
             # Input for key,value to be stored/ updated at datastore
             key = input("Enter key name: ")
             value = input("Enter value/message to be stored against key: ")
-            log.append("{{:process {id}, :type :invoke, :f write, :value {val}}}".format(id=client_id, val=value))
-            status = write(key, value, client_id)
+            log_output("{{:process {id}, :type :invoke, :f write, :value {val}}}".format(id=client_id, val=value))
+            status = write(key, value)
             if status:
-                log.append("{{:process {id}, :type :ok, :f write, :value {val}}}".format(id=client_id, val=value))
+                log_output("{{:process {id}, :type :ok, :f write, :value {val}}}".format(id=client_id, val=value))
             else:
-                log.append("{{:process {id}, :type :fail, :f write, :value {val}}}".format(id=client_id, val=value))
+                log_output("{{:process {id}, :type :fail, :f write, :value {val}}}".format(id=client_id, val=value))
             print(status)
 
         elif message == 2:
             # Enter key for search at data store
             key = input("Enter key name to be read: ")
-            log.append("{{:process {id}, :type :invoke, :f read, :value nil}}".format(id=client_id))
+            log_output("{{:process {id}, :type :invoke, :f read, :value nil}}".format(id=client_id))
             value = read(key)
             if value:
-                log.append("{{:process {id}, :type :ok, :f read, :value {val}}}".format(id=client_id, val=value))
+                log_output("{{:process {id}, :type :ok, :f read, :value {val}}}".format(id=client_id, val=value))
             else:
-                log.append("{{:process {id}, :type :fail, :f read, :value nil}}".format(id=client_id))
+                log_output("{{:process {id}, :type :fail, :f read, :value nil}}".format(id=client_id))
             print("Value read for Key: ", key, " is Value: ", value)
 
         elif message == 3:
-            log = '\n'.join(log)
-            edn_file.write(log)
             print("End of execution session")
             break
 
         elif message == 4:
+            value = random.randrange(1, 1000)
+            status = write('test1', value)
             for i in range(167):
                 op = random.choice([1, 2])
+                print(status)
                 if op == 1:
                     value = random.randrange(1, 1000)
-                    edn_file.write("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
-                    status = write('test', value, client_id)
-                    if status:
-                        edn_file.write("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))
-                    else:
-                        edn_file.write("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+                    status = write('test1', value)
                     print(status)
                 else:
-                    edn_file.write("{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
-                    value = read("test")
-                    if value:
-                        edn_file.write("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=value))
-                    else:
-                        edn_file.write("{{:process {id}, :type :fail, :f :read, :value nil}}\n".format(id=client_id))
+                    value = read("test1")
                     print("Value read for Key: ", "test", " is Value: ", value)
-            edn_file.close()
             break
+
     else:
         print("Invalid Option, try again")
