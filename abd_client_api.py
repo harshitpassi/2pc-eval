@@ -129,10 +129,11 @@ def log_output(log):
 
 while True:
     print("Enter what you would like to do: ")
-    print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run")
-    message = 4  # Take in the option for process to be executed
+    print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
+    # message = 4  # Take in the option for process to be executed
+    message = int(input())
 
-    if 0 < message < 5:
+    if 0 < message < 6:
 
         if message == 1:
             # Input for key,value to be stored/ updated at datastore
@@ -162,11 +163,8 @@ while True:
             break
 
         elif message == 4:
-            value = random.randrange(1, 1000)
-            status = write('test1', value)
-            for i in range(167):
-                op = random.choice([1, 2])
-                print(status)
+            op = 1
+            for i in range(67):
                 if op == 1:
                     value = random.randrange(1, 1000)
                     status = write('test1', value)
@@ -174,7 +172,38 @@ while True:
                 else:
                     value = read("test1")
                     print("Value read for Key: ", "test", " is Value: ", value)
+                op = random.choice([1, 2])
             break
 
+        elif message == 5:
+            latency = []
+            op = 1
+            perf_time_start = time.time()
+            num_requests = int(input("Enter number of requests to be made by client {0}: ".format(client_id)))
+            for i in range(num_requests):
+                if op == 1:
+                    value = random.randrange(1, 1000)
+                    lat_start = time.time()
+                    status = write('test1', value)
+                    lat_end = time.time()
+                    latency.append(lat_end - lat_start)
+                    print(status)
+                else:
+                    lat_start = time.time()
+                    value = read("test1")
+                    lat_end = time.time()
+                    latency.append(lat_end - lat_start)
+                    print("Value read for Key: ", "test", " is Value: ", value)
+                op = random.choice([1, 2])
+            perf_time_end = time.time()
+            throughput = num_requests/(perf_time_end-perf_time_start)
+            latency = sorted(latency)
+            if len(latency) % 2 == 0:
+                median = (latency[int(len(latency)/2)] + latency[int((len(latency)/2)+1)])/2
+            else:
+                median = latency[int(math.ceil(len(latency)/2))]
+            print("System throughput at client {0}: {1}".format(client_id, throughput))
+            print("Median latency is: {0}, and 95th percentile is {1}".format(median, latency[int(math.ceil(len(latency)*0.95))]))
+            print(latency)
     else:
         print("Invalid Option, try again")
