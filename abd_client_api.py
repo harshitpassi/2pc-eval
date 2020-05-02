@@ -167,10 +167,10 @@ while True:
             for i in range(67):
                 if op == 1:
                     value = random.randrange(1, 1000)
-                    status = write('test1', value)
+                    status = write('abd', value)
                     print(status)
                 else:
-                    value = read("test1")
+                    value = read("abd")
                     print("Value read for Key: ", "test", " is Value: ", value)
                 op = random.choice([1, 2])
             break

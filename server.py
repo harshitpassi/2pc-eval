@@ -35,10 +35,8 @@ def create_kv():
         if timestamp_response < data.get("ts", {}).get("integer", 0):
             collection.find_one_and_update({'key': data['key']}, {'$set': {'value': data['value'],'ts': {'id': int(data['ts']['id']),'integer': int(data['ts']['integer'])}}})
             return {'result': True}
-        elif timestamp_response == data.get("ts", {}).get("integer", 0) and timestamp_client < data.get("ts", {}).get("id", 0):
+        elif timestamp_response == data.get("ts", {}).get("integer", 0) and timestamp_client <= data.get("ts", {}).get("id", 0):
             collection.find_one_and_update({'key': data['key']}, {'$set': {'value': data['value'],'ts': {'id': int(data['ts']['id']),'integer': int(data['ts']['integer'])}}})
-            return {'result': True}
-        elif timestamp_response == data.get("ts", {}).get("integer", 0):
             return {'result': True}
         return {'result': False}
 
