@@ -129,7 +129,7 @@ def read(key):
     count = 0
     server_granting_locks = []
     # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession() as session:
+    with FuturesSession(adapter_kwargs={'max_retries' : 0}) as session:
 
         # Acquire read locks from majority and save their server IDs in an array
         lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]

@@ -26,11 +26,16 @@ def query_all_servers(key, session, count=0):
     response_futures = [session.get(address.rstrip() + "kv/read/{}".format(key)) for address in addresses]
     # Handle the calls as they are completed, breaking when the majority number has been reached
     for future in as_completed(response_futures):
-        count += 1
-        if(count <= final_count):
-            responses.append(future.result().json())
-        else:
-            break
+        try:
+            count += 1
+            if(count <= final_count):
+                responses.append(future.result().json())
+            else:
+                break
+        except:
+            count -= 1
+            print('Server unavailable.')
+            continue
     # Get the latest item from the received responses
     for response in responses:
         timestamp_response = response.get("ts", {}).get("integer", 0)
@@ -46,7 +51,7 @@ def write(key, value):
     log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession(max_workers=final_count) as session:
+    with FuturesSession(adapter_kwargs={'max_retries' : 0}) as session:
         latest_item = query_all_servers(key, session)
         # Create a request payload with an updated timestamp
         payload = {
@@ -63,13 +68,18 @@ def write(key, value):
         count=0
         # Break after receiving responses from the majority quorum
         for future in as_completed(request_futures):
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-            else:
-                print("Majority ACKs received")
-                log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
-                break
+            try:
+                count += 1
+                if(count <= final_count):
+                    print(future.result())
+                else:
+                    print("Majority ACKs received")
+                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
     return "Success"
 
 
@@ -77,7 +87,7 @@ def read(key):
     log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession(max_workers=final_count) as session:
+    with FuturesSession(adapter_kwargs={'max_retries' : 0}) as session:
         # Get the item with the latest timestamp
         latest_item = query_all_servers(key, session)
         print(latest_item)
@@ -96,12 +106,17 @@ def read(key):
         count=0
         # Handle the calls as they are completed, breaking when the majority number has been reached
         for future in as_completed(request_futures):
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-            else:
-                print("Majority ACKs received")
-                break
+            try:
+                count += 1
+                if(count <= final_count):
+                    print(future.result())
+                else:
+                    print("Majority ACKs received")
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
         # Return the latest item's value
         return latest_item['value']
 
