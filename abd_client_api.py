@@ -113,8 +113,8 @@ def log_output(log):
 while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
-    # message = 4  # Take in the option for process to be executed
-    message = 4
+    # Take in the option for process to be executed
+    message = int(input())
 
     if 0 < message < 6:
 
@@ -122,23 +122,13 @@ while True:
             # Input for key,value to be stored/ updated at datastore
             key = input("Enter key name: ")
             value = input("Enter value/message to be stored against key: ")
-            log_output("{{:process {id}, :type :invoke, :f write, :value {val}}}".format(id=client_id, val=value))
             status = write(key, value)
-            if status:
-                log_output("{{:process {id}, :type :ok, :f write, :value {val}}}".format(id=client_id, val=value))
-            else:
-                log_output("{{:process {id}, :type :fail, :f write, :value {val}}}".format(id=client_id, val=value))
             print(status)
 
         elif message == 2:
             # Enter key for search at data store
             key = input("Enter key name to be read: ")
-            log_output("{{:process {id}, :type :invoke, :f read, :value nil}}".format(id=client_id))
             value = read(key)
-            if value:
-                log_output("{{:process {id}, :type :ok, :f read, :value {val}}}".format(id=client_id, val=value))
-            else:
-                log_output("{{:process {id}, :type :fail, :f read, :value nil}}".format(id=client_id))
             print("Value read for Key: ", key, " is Value: ", value)
 
         elif message == 3:
