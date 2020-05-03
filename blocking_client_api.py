@@ -1,7 +1,7 @@
 from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
 from utilities import retry_with_backoff
-import math, random, time
+import math, random, time, requests
 
 # Hardcoded per client unique ID
 client_id = 1
@@ -53,6 +53,7 @@ def release_all_locks(key, session):
 
 
 def write(key, value):
+    log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     count = 0
     server_granting_locks = []
     # Initialize future session for creating asynchronous HTTP calls
@@ -62,18 +63,23 @@ def write(key, value):
         lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
         # Handle the calls as they are completed, breaking when the majority number has been reached
         for future in as_completed(lock_futures):
-            count += 1
-            if(count <= final_count):
-                server_granting_locks.append(future.result().json())
-                print(future.result().json())
-            else:
-                break
+            try:
+                count += 1
+                if(count <= final_count):
+                    server_granting_locks.append(future.result().json())
+                    print(future.result().json())
+                else:
+                    break
+            except requests.exceptions.RequestException:
+                count -= 1
+                print('Server unavailable.')
+                continue
         server_granting_locks = [x['result'] for x in server_granting_locks]
         if False in server_granting_locks:
             print('Unable to acquire lock from majority. Please try again.')
             # Release locks
             release_all_locks(key, session)
-            log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+            log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
             return None
         majority_addresses = []
         for index in server_granting_locks:
@@ -95,20 +101,27 @@ def write(key, value):
         # Receive responses from majority servers
         count=0
         # Break after receiving responses from the majority quorum
+        server_writing_value = []
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
                 print(future.result())
+                server_writing_value.append(future.result().json())
             else:
                 print("Majority ACKs received")
+                server_writing_value = [x['result'] for x in server_writing_value]
+                if False in server_writing_value:
+                    log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+                    return "Failed to write value, please try again."
                 break
         # Release locks
         release_all_locks(key, session)
-    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+    log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     return "Success"
 
 
 def read(key):
+    log_output("{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
     count = 0
     server_granting_locks = []
     # Initialize future session for creating asynchronous HTTP calls
@@ -129,7 +142,7 @@ def read(key):
             print('Unable to acquire lock from majority. Please try again.')
             # Release locks
             release_all_locks(key, session)
-            log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :fail, :f :read, :value nil}}\n".format(id=client_id))
+            log_output("{{:process {id}, :type :fail, :f :read, :value nil}}\n".format(id=client_id))
             return None
         majority_addresses = []
         for index in server_granting_locks:
@@ -139,6 +152,7 @@ def read(key):
         # Get the item with the latest timestamp
         latest_item = query_majority_servers(key, majority_addresses, session)
         print(latest_item)
+        log_output("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
 
         # Update servers with latest item
         # Create a payload with the latest item
@@ -155,32 +169,42 @@ def read(key):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Handle the calls as they are completed, breaking when the majority number has been reached
+        log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
+        server_writing_value = []
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
                 print(future.result())
+                server_writing_value.append(future.result().json())
             else:
                 print("Majority ACKs received")
+                server_writing_value = [x['result'] for x in server_writing_value]
+                if False in server_writing_value:
+                    log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
+                    return None
+                else:
+                    log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))        
                 break
 
         # Release locks
         release_all_locks(key, session)
 
         # Return the latest item's value
-        log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         return latest_item['value']
 
-edn_file = open(str(client_id)+'blocking_log.edn', 'a+')
+
+edn_file = open(str(client_id)+'abd_log.edn', 'a+')
 def log_output(log):
-    edn_file.write(log)
+    edn_file.write(str(time.time()) + ' : ' + log)
 
 
 while True:
     print("Enter what you would like to do: ")
-    print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run")
-    message = 4  # Take in the option for process to be executed
+    print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
+    # message = 4  # Take in the option for process to be executed
+    message = 4
 
-    if 0 < message < 5:
+    if 0 < message < 6:
 
         if message == 1:
             # Input for key,value to be stored/ updated at datastore
@@ -210,19 +234,48 @@ while True:
             break
 
         elif message == 4:
+            op = 1
             for i in range(167):
-                op = random.choice([1, 2])
                 if op == 1:
                     value = random.randrange(1, 1000)
-                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
-                    status = write('test', value)
+                    status = write('abd', value)
                     print(status)
                 else:
-                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
-                    value = read("test")
+                    value = read("abd")
                     print("Value read for Key: ", "test", " is Value: ", value)
+                op = random.choice([1, 2])
             edn_file.close()
             break
 
+        elif message == 5:
+            latency = []
+            op = 1
+            perf_time_start = time.time()
+            num_requests = int(input("Enter number of requests to be made by client {0}: ".format(client_id)))
+            for i in range(num_requests):
+                if op == 1:
+                    value = random.randrange(1, 1000)
+                    lat_start = time.time()
+                    status = write('test1', value)
+                    lat_end = time.time()
+                    latency.append(lat_end - lat_start)
+                    print(status)
+                else:
+                    lat_start = time.time()
+                    value = read("test1")
+                    lat_end = time.time()
+                    latency.append(lat_end - lat_start)
+                    print("Value read for Key: ", "test", " is Value: ", value)
+                op = random.choice([1, 2])
+            perf_time_end = time.time()
+            throughput = num_requests/(perf_time_end-perf_time_start)
+            latency = sorted(latency)
+            if len(latency) % 2 == 0:
+                median = (latency[int(len(latency)/2)] + latency[int((len(latency)/2)+1)])/2
+            else:
+                median = latency[int(math.ceil(len(latency)/2))]
+            print("System throughput at client {0}: {1}".format(client_id, throughput))
+            print("Median latency is: {0}, and 95th percentile is {1}".format(median, latency[int(math.ceil(len(latency)*0.95))]))
+            print(latency)
     else:
         print("Invalid Option, try again")

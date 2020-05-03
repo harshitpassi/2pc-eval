@@ -43,10 +43,10 @@ def query_all_servers(key, session, count=0):
 
 
 def write(key, value):
-    log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession() as session:
+    with FuturesSession(max_workers=final_count) as session:
         latest_item = query_all_servers(key, session)
         # Create a request payload with an updated timestamp
         payload = {
@@ -62,32 +62,26 @@ def write(key, value):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Break after receiving responses from the majority quorum
-        server_writing_value = []
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
                 print(future.result())
-                server_writing_value.append(future.result().json())
             else:
                 print("Majority ACKs received")
-                server_writing_value = [x['result'] for x in server_writing_value]
-                if False in server_writing_value:
-                    log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
-                    return "Failed to write value, please try again."
+                log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
                 break
-    log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
     return "Success"
 
 
 def read(key):
-    log_output("{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
+    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession() as session:
+    with FuturesSession(max_workers=final_count) as session:
         # Get the item with the latest timestamp
         latest_item = query_all_servers(key, session)
         print(latest_item)
-        log_output("{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
+        log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         # Create a payload with the latest item
         payload = {
             'key': latest_item['key'],
@@ -101,37 +95,26 @@ def read(key):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Handle the calls as they are completed, breaking when the majority number has been reached
-        server_writing_value = []
-        log_output("{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         for future in as_completed(request_futures):
             count += 1
             if(count <= final_count):
                 print(future.result())
-                server_writing_value.append(future.result().json())
             else:
                 print("Majority ACKs received")
-                server_writing_value = [x['result'] for x in server_writing_value]
-                if False in server_writing_value:
-                    log_output("{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
-                    return None
-                else:
-                    log_output("{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))        
                 break
         # Return the latest item's value
         return latest_item['value']
 
-
+edn_file = open(str(client_id)+'abd_log.edn', 'a+')
 def log_output(log):
-    edn_file = open(str(client_id)+'abd_log.edn', 'a+')
-    edn_file.write(str(time.time()) + ' : ' + log)
-    edn_file.close()
+    edn_file.write(log)
 
 
 while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
     # message = 4  # Take in the option for process to be executed
-    message = int(input())
+    message = 4
 
     if 0 < message < 6:
 
@@ -164,7 +147,7 @@ while True:
 
         elif message == 4:
             op = 1
-            for i in range(67):
+            for i in range(167):
                 if op == 1:
                     value = random.randrange(1, 1000)
                     status = write('abd', value)
@@ -173,6 +156,7 @@ while True:
                     value = read("abd")
                     print("Value read for Key: ", "test", " is Value: ", value)
                 op = random.choice([1, 2])
+            edn_file.close()
             break
 
         elif message == 5:
