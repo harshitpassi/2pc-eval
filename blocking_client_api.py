@@ -1,7 +1,8 @@
 from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
 from utilities import retry_with_backoff
-import math, random, time, requests
+import math, random, time, requests, urllib3
+from requests.adapters import HTTPAdapter
 
 # Hardcoded per client unique ID
 client_id = 1
@@ -44,12 +45,17 @@ def release_all_locks(key, session):
     unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
     count=0
     for future in as_completed(unlock_futures):
-        count += 1
-        if(count <= final_count):
-            print(future.result())
-        else:
-            print("Majority ACKs received")
-            break
+        try:
+            count += 1
+            if(count <= final_count):
+                print(future.result())
+            else:
+                print("Majority ACKs received")
+                break
+        except:
+            count -= 1
+            print('Server unavailable.')
+            continue
 
 
 def write(key, value):
@@ -57,8 +63,7 @@ def write(key, value):
     count = 0
     server_granting_locks = []
     # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession() as session:
-
+    with FuturesSession(adapter_kwargs={'max_retries' : 0}) as session:
         # Acquire write locks from majority and save their server IDs in an array
         lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
         # Handle the calls as they are completed, breaking when the majority number has been reached
@@ -70,7 +75,7 @@ def write(key, value):
                     print(future.result().json())
                 else:
                     break
-            except requests.exceptions.RequestException:
+            except:
                 count -= 1
                 print('Server unavailable.')
                 continue
@@ -102,12 +107,17 @@ def write(key, value):
         count=0
         # Break after receiving responses from the majority quorum
         for future in as_completed(request_futures):
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-            else:
-                print("Majority ACKs received")
-                break
+            try:
+                count += 1
+                if(count <= final_count):
+                    print(future.result())
+                else:
+                    print("Majority ACKs received")
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
         # Release locks
         release_all_locks(key, session)
     log_output(str(time.time()) + ' : ' + "{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))
@@ -125,12 +135,17 @@ def read(key):
         lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
         # Handle the calls as they are completed, breaking when the majority number has been reached
         for future in as_completed(lock_futures):
-            count += 1
-            if(count <= final_count):
-                server_granting_locks.append(future.result().json())
-                print(future.result().json())
-            else:
-                break
+            try:
+                count += 1
+                if(count <= final_count):
+                    server_granting_locks.append(future.result().json())
+                    print(future.result().json())
+                else:
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
         server_granting_locks = [x['result'] for x in server_granting_locks]
         if False in server_granting_locks:
             print('Unable to acquire lock from majority. Please try again.')
@@ -164,12 +179,17 @@ def read(key):
         count=0
         # Handle the calls as they are completed, breaking when the majority number has been reached
         for future in as_completed(request_futures):
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-            else:
-                print("Majority ACKs received")
-                break
+            try:
+                count += 1
+                if(count <= final_count):
+                    print(future.result())
+                else:
+                    print("Majority ACKs received")
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
 
         # Release locks
         release_all_locks(key, session)
