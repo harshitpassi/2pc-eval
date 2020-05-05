@@ -1,6 +1,6 @@
 from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
-import math, random, time
+import math, random, time, csv
 
 # Hardcoded per client unique ID
 client_id = 1
@@ -128,8 +128,8 @@ def log_output(log):
 while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
-    # Take in the option for process to be executed
-    message = int(input())
+    # message = 4  # Take in the option for process to be executed
+    message = 5
 
     if 0 < message < 6:
 
@@ -167,6 +167,8 @@ while True:
         elif message == 5:
             latency = []
             op = 1
+            eval_file = open(str(client_id) + "eval_out.csv", 'wb')
+            writer = csv.writer(eval_file)
             perf_time_start = time.time()
             num_requests = int(input("Enter number of requests to be made by client {0}: ".format(client_id)))
             for i in range(num_requests):
@@ -187,8 +189,11 @@ while True:
             perf_time_end = time.time()
             throughput = num_requests/(perf_time_end-perf_time_start)
             latency = sorted(latency)
+            writer.writerow(perf_time_end-perf_time_start)
+            writer.writerow(latency)
             if len(latency) % 2 == 0:
                 median = (latency[int(len(latency)/2)] + latency[int((len(latency)/2)+1)])/2
+                writer.writerow(num_requests)
             else:
                 median = latency[int(math.ceil(len(latency)/2))]
             print("System throughput at client {0}: {1}".format(client_id, throughput))
