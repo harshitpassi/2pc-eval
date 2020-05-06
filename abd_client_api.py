@@ -165,7 +165,8 @@ while True:
             break
 
         elif message == 5:
-            latency = []
+            latency_read = []
+            latency_write = []
             eval_file = open("eval_out.csv", 'a+')
             writer = csv.writer(eval_file)
             perf_time_start = time.time()
@@ -181,27 +182,25 @@ while True:
                     lat_start = time.time()
                     status = write('test1', value)
                     lat_end = time.time()
-                    latency.append(lat_end - lat_start)
+                    latency_write.append(lat_end - lat_start)
                     print(status)
                 else:
                     lat_start = time.time()
                     value = read("test1")
                     lat_end = time.time()
-                    latency.append(lat_end - lat_start)
+                    latency_read.append(lat_end - lat_start)
                     print("Value read for Key: ", "test", " is Value: ", value)
             perf_time_end = time.time()
             throughput = num_requests/(perf_time_end-perf_time_start)
-            latency = sorted(latency)
+            latency_write = sorted(latency_write)
+            latency_read = sorted(latency_read)
             writer.writerow([client_id, perf_time_end-perf_time_start])
-            writer.writerow([client_id, latency])
-            if len(latency) % 2 == 0:
-                median = (latency[int(len(latency)/2)] + latency[int((len(latency)/2)+1)])/2
-                writer.writerow([client_id, num_requests])
-            else:
-                median = latency[int(math.ceil(len(latency)/2))]
+            writer.writerow([client_id, latency_write])
+            writer.writerow([client_id, latency_read])
+            writer.writerow([client_id, num_requests])
             # print("System throughput at client {0}: {1}".format(client_id, throughput))
             # print("Median latency is: {0}, and 95th percentile is {1}".format(median, latency[int(math.ceil(len(latency)*0.95))]))
-            print(latency)
+            # print(latency)
             break
     else:
         print("Invalid Option, try again")
