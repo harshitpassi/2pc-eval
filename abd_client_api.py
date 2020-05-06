@@ -166,10 +166,11 @@ while True:
 
         elif message == 5:
             latency = []
-            eval_file = open("eval_out.csv", 'wa')
+            eval_file = open("eval_out.csv", 'a+')
             writer = csv.writer(eval_file)
             perf_time_start = time.time()
-            num_requests = int(input("Enter number of requests to be made by client {0}: ".format(client_id)))
+            #num_requests = int(input("Enter number of requests to be made by client {0}: ".format(client_id)))
+            num_requests = 50
             options = [1]*(int(0.9*num_requests))
             options.extend([2]*(num_requests - len(options)))
             random.shuffle(options)
@@ -198,8 +199,9 @@ while True:
                 writer.writerow([client_id, num_requests])
             else:
                 median = latency[int(math.ceil(len(latency)/2))]
-            print("System throughput at client {0}: {1}".format(client_id, throughput))
-            print("Median latency is: {0}, and 95th percentile is {1}".format(median, latency[int(math.ceil(len(latency)*0.95))]))
+            # print("System throughput at client {0}: {1}".format(client_id, throughput))
+            # print("Median latency is: {0}, and 95th percentile is {1}".format(median, latency[int(math.ceil(len(latency)*0.95))]))
             print(latency)
+            break
     else:
         print("Invalid Option, try again")
