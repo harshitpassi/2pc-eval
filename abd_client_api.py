@@ -166,13 +166,16 @@ while True:
 
         elif message == 5:
             latency = []
-            op = 1
             eval_file = open("eval_out.csv", 'wa')
             writer = csv.writer(eval_file)
             perf_time_start = time.time()
             num_requests = int(input("Enter number of requests to be made by client {0}: ".format(client_id)))
-            for i in range(num_requests):
-                if op == 1:
+            options = [1]*(int(0.9*num_requests))
+            options.extend([2]*(num_requests - len(options)))
+            random.shuffle(options)
+            options[0] = 1
+            for opt in options:
+                if opt == 1:
                     value = random.randrange(1, 1000)
                     lat_start = time.time()
                     status = write('test1', value)
@@ -185,7 +188,6 @@ while True:
                     lat_end = time.time()
                     latency.append(lat_end - lat_start)
                     print("Value read for Key: ", "test", " is Value: ", value)
-                op = random.choice([1, 2])
             perf_time_end = time.time()
             throughput = num_requests/(perf_time_end-perf_time_start)
             latency = sorted(latency)
