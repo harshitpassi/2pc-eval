@@ -167,7 +167,7 @@ while True:
         elif message == 5:
             latency = []
             op = 1
-            eval_file = open(str(client_id) + "eval_out.csv", 'wb')
+            eval_file = open("eval_out.csv", 'wa')
             writer = csv.writer(eval_file)
             perf_time_start = time.time()
             num_requests = int(input("Enter number of requests to be made by client {0}: ".format(client_id)))
@@ -189,11 +189,11 @@ while True:
             perf_time_end = time.time()
             throughput = num_requests/(perf_time_end-perf_time_start)
             latency = sorted(latency)
-            writer.writerow(perf_time_end-perf_time_start)
-            writer.writerow(latency)
+            writer.writerow([client_id, perf_time_end-perf_time_start])
+            writer.writerow([client_id, latency])
             if len(latency) % 2 == 0:
                 median = (latency[int(len(latency)/2)] + latency[int((len(latency)/2)+1)])/2
-                writer.writerow(num_requests)
+                writer.writerow([client_id, num_requests])
             else:
                 median = latency[int(math.ceil(len(latency)/2))]
             print("System throughput at client {0}: {1}".format(client_id, throughput))
