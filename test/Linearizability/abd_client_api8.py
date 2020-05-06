@@ -6,7 +6,7 @@ import math, random, time
 client_id = 8
 
 # Read the config file for a list of addresses for all the servers
-f = open("config", "r", encoding="utf-8")
+f = open("../../config", "r", encoding="utf-8")
 addresses = f.readlines()
 num_servers = len(addresses)
 final_count = 0

@@ -1,0 +1,15 @@
+ABD 3 read - crash
+
+Throughput 5.3909
+Median Latency of Reads 0.18325
+95th Percentile Latency of Reads 0.2226
+Median Latency of Writes 0.18415
+95th Percentile Latency of Writes 0.266
+
+Blocking 3 read - crash
+
+Throughput 4.4708
+Median Latency of Reads 0.1843
+95th Percentile Latency of Reads 0.3763
+Median Latency of Writes 0.19425
+95th Percentile Latency of Writes 0.4081

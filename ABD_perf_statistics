@@ -1,0 +1,47 @@
+ABD 5 read
+
+Throughput 3.5519
+Median Latency of Reads 0.27785
+95th Percentile Latency of Reads 0.36815
+Median Latency of Writes 0.26835
+95th Percentile Latency of Writes 0.37405
+
+ABD 5 write
+
+Throughput 3.5507
+Median Latency of Reads 0.291
+95th Percentile Latency of Reads 0.3895
+Median Latency of Writes 0.27505
+95th Percentile Latency of Writes 0.3774
+
+ABD 3 read
+
+Throughput 4.6135
+Median Latency of Reads 0.1988
+95th Percentile Latency of Reads 0.3188
+Median Latency of Writes 0.2048
+95th Percentile Latency of Writes 0.4122
+
+ABD 3 write
+
+Throughput 4.7811
+Median Latency of Reads 0.2043
+95th Percentile Latency of Reads 0.3061
+Median Latency of Writes 0.2019
+95th Percentile Latency of Writes 0.3071
+
+ABD 1 read
+
+Throughput 7.3101
+Median Latency of Reads 0.1324
+95th Percentile Latency of Reads 0.14765
+Median Latency of Writes 0.1333
+95th Percentile Latency of Writes 0.2063
+
+ABD 1 write
+
+Throughput 7.4459
+Median Latency of Reads 0.12945
+95th Percentile Latency of Reads 0.1428
+Median Latency of Writes 0.1313
+95th Percentile Latency of Writes 0.1504

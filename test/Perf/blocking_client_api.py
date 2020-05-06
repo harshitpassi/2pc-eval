@@ -1,12 +1,13 @@
 from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
+from utilities import retry_with_backoff
 import math, random, time, csv
 
 # Hardcoded per client unique ID
 client_id = 1
 
 # Read the config file for a list of addresses for all the servers
-f = open("config", "r", encoding="utf-8")
+f = open("../../config", "r", encoding="utf-8")
 addresses = f.readlines()
 num_servers = len(addresses)
 final_count = 0
@@ -18,24 +19,15 @@ else:
     final_count = math.ceil(num_servers/2)
 
 
-# Handler function to query all servers and get the latest item, for the first phase of reads and writes 
-def query_all_servers(key, session, count=0):
+# Handler function to query a majority of servers and get the latest item, for the first phase of reads and writes 
+def query_majority_servers(key, majority_addresses, session):
     responses = []
     latest_item = {}
     # Initialize list of read API calls, to get current timestamps in each server, all sent simultaneously
-    response_futures = [session.get(address.rstrip() + "kv/read/{}".format(key)) for address in addresses]
-    # Handle the calls as they are completed, breaking when the majority number has been reached
+    response_futures = [session.get(address.rstrip() + "kv/read/{}".format(key)) for address in majority_addresses]
+    # Handle the calls as they are completed
     for future in as_completed(response_futures):
-        try:
-            count += 1
-            if(count <= final_count):
-                responses.append(future.result().json())
-            else:
-                break
-        except:
-            count -= 1
-            print('Server unavailable.')
-            continue
+        responses.append(future.result().json())
     # Get the latest item from the received responses
     for response in responses:
         timestamp_response = response.get("ts", {}).get("integer", 0)
@@ -46,14 +38,60 @@ def query_all_servers(key, session, count=0):
             latest_item = response
     return latest_item
 
+# Handler function to release acquired locks
+def release_all_locks(key, session):
+    # Release locks
+    unlock_futures = [session.get(address.rstrip() + "kv/blocking/release_lock/{}".format(key)) for address in addresses]
+    count=0
+    for future in as_completed(unlock_futures):
+        try:
+            count += 1
+            if(count <= final_count):
+                print(future.result())
+            else:
+                print("Majority ACKs received")
+                break
+        except:
+            count -= 1
+            print('Server unavailable.')
+            continue
+
 
 def write(key, value):
-    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+    log_output(str(time.time()) + ' : ' + "{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     count = 0
+    server_granting_locks = []
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession(adapter_kwargs={'max_retries' : 0}) as session:
-        latest_item = query_all_servers(key, session)
-        # Create a request payload with an updated timestamp
+        # Acquire write locks from majority and save their server IDs in an array
+        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
+        # Handle the calls as they are completed, breaking when the majority number has been reached
+        for future in as_completed(lock_futures):
+            try:
+                count += 1
+                if(count <= final_count):
+                    server_granting_locks.append(future.result().json())
+                    print(future.result().json())
+                else:
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
+        server_granting_locks = [x['result'] for x in server_granting_locks]
+        if False in server_granting_locks:
+            print('Unable to acquire lock from majority. Please try again.')
+            # Release locks
+            release_all_locks(key, session)
+            log_output(str(time.time()) + ' : ' + "{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
+            return None
+        majority_addresses = []
+        for index in server_granting_locks:
+            majority_addresses.append(addresses[index-1])
+
+        latest_item = query_majority_servers(key, majority_addresses, session)
+
+        # Create a request payload
         payload = {
             'key': key,
             'value': value,
@@ -62,9 +100,9 @@ def write(key, value):
                 'integer': latest_item.get("ts", {}).get("integer", 0) + 1
             }
         }
-
         # Initialize list of write API calls, to send updated values to all servers, sent simultaneously
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
+        # Receive responses from majority servers
         count=0
         # Break after receiving responses from the majority quorum
         for future in as_completed(request_futures):
@@ -74,24 +112,57 @@ def write(key, value):
                     print(future.result())
                 else:
                     print("Majority ACKs received")
-                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
                     break
             except:
                 count -= 1
                 print('Server unavailable.')
                 continue
+        # Release locks
+        release_all_locks(key, session)
+    log_output(str(time.time()) + ' : ' + "{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     return "Success"
 
 
 def read(key):
-    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
+    log_output(str(time.time()) + ' : ' + "{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
     count = 0
+    server_granting_locks = []
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession(adapter_kwargs={'max_retries' : 0}) as session:
+
+        # Acquire read locks from majority and save their server IDs in an array
+        lock_futures = [session.get(address.rstrip() + "kv/blocking/acquire_lock/{}".format(key), params={'id': client_id}) for address in addresses]
+        # Handle the calls as they are completed, breaking when the majority number has been reached
+        for future in as_completed(lock_futures):
+            try:
+                count += 1
+                if(count <= final_count):
+                    server_granting_locks.append(future.result().json())
+                    print(future.result().json())
+                else:
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
+        server_granting_locks = [x['result'] for x in server_granting_locks]
+        if False in server_granting_locks:
+            print('Unable to acquire lock from majority. Please try again.')
+            # Release locks
+            release_all_locks(key, session)
+            log_output(str(time.time()) + ' : ' + "{{:process {id}, :type :fail, :f :read, :value nil}}\n".format(id=client_id))
+            return None
+        majority_addresses = []
+        for index in server_granting_locks:
+            majority_addresses.append(addresses[index-1])
+
+
         # Get the item with the latest timestamp
-        latest_item = query_all_servers(key, session)
+        latest_item = query_majority_servers(key, majority_addresses, session)
         print(latest_item)
-        log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
+        log_output(str(time.time()) + ' : ' + "{{:process {id}, :type :ok, :f :read, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
+
+        # Update servers with latest item
         # Create a payload with the latest item
         payload = {
             'key': latest_item['key'],
@@ -101,6 +172,7 @@ def read(key):
                 'integer': latest_item.get("ts", {}).get("integer", 0)
             }
         }
+
         # Initialize list of write API calls, to send the latest item to all servers, sent simultaneously
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
@@ -117,10 +189,15 @@ def read(key):
                 count -= 1
                 print('Server unavailable.')
                 continue
+
+        # Release locks
+        release_all_locks(key, session)
+
         # Return the latest item's value
         return latest_item['value']
 
-edn_file = open(str(client_id)+'abd_log.edn', 'a+')
+
+edn_file = open(str(client_id)+'blocking_log.edn', 'a+')
 def log_output(log):
     edn_file.write(log)
 
@@ -129,7 +206,7 @@ while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
     # Take in the option for process to be executed
-    message = int(input())
+    message = 5
 
     if 0 < message < 6:
 
@@ -138,13 +215,29 @@ while True:
             key = input("Enter key name: ")
             value = input("Enter value/message to be stored against key: ")
             status = write(key, value)
-            print(status)
+            # None returned (locked) retry writes with backoff
+            if not status:
+                status = retry_with_backoff(write, key, value)
+                if not status:
+                    print("Operation unsucessful")
+                else:
+                    print(status)
+            else:
+                print(status)
 
         elif message == 2:
             # Enter key for search at data store
             key = input("Enter key name to be read: ")
             value = read(key)
-            print("Value read for Key: ", key, " is Value: ", value)
+            # Read unsuccessful, retry reads with backoff
+            if not value:
+                value = retry_with_backoff(read, key)
+                if not value:
+                    print("Operation unsucessful")
+                else:
+                    print("Value read for Key: ", key, " is Value: ", value)
+            else:
+                print("Value read for Key: ", key, " is Value: ", value)
 
         elif message == 3:
             print("End of execution session")
@@ -171,7 +264,7 @@ while True:
             read_latency_file = open("read_latency_out.csv", 'a+')
             write_latency_file = open("write_latency_out.csv", 'a+')
             perf_time_start = time.time()
-            num_requests = int(input('\n Enter number of requests to send:'))
+            num_requests = 50
             options = [2]*(int(0.9*num_requests))
             options.extend([1]*(num_requests - len(options)))
             random.shuffle(options)

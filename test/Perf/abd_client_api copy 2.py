@@ -1,12 +1,12 @@
 from concurrent.futures import as_completed
 from requests_futures.sessions import FuturesSession
-import math, random, time
+import math, random, time, csv
 
 # Hardcoded per client unique ID
-client_id = 6
+client_id = 2
 
 # Read the config file for a list of addresses for all the servers
-f = open("config", "r", encoding="utf-8")
+f = open("../../config", "r", encoding="utf-8")
 addresses = f.readlines()
 num_servers = len(addresses)
 final_count = 0
@@ -26,11 +26,16 @@ def query_all_servers(key, session, count=0):
     response_futures = [session.get(address.rstrip() + "kv/read/{}".format(key)) for address in addresses]
     # Handle the calls as they are completed, breaking when the majority number has been reached
     for future in as_completed(response_futures):
-        count += 1
-        if(count <= final_count):
-            responses.append(future.result().json())
-        else:
-            break
+        try:
+            count += 1
+            if(count <= final_count):
+                responses.append(future.result().json())
+            else:
+                break
+        except:
+            count -= 1
+            print('Server unavailable.')
+            continue
     # Get the latest item from the received responses
     for response in responses:
         timestamp_response = response.get("ts", {}).get("integer", 0)
@@ -46,7 +51,7 @@ def write(key, value):
     log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=value))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession(max_workers=final_count) as session:
+    with FuturesSession(adapter_kwargs={'max_retries' : 0}) as session:
         latest_item = query_all_servers(key, session)
         # Create a request payload with an updated timestamp
         payload = {
@@ -62,20 +67,19 @@ def write(key, value):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Break after receiving responses from the majority quorum
-        #server_writing_value = []
         for future in as_completed(request_futures):
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-                #server_writing_value.append(future.result().json())
-            else:
-                print("Majority ACKs received")
-                log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
-                #server_writing_value = [x['result'] for x in server_writing_value]
-                #if False in server_writing_value:
-                    #log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=value))
-                    #return "Failed to write value, please try again."
-                break
+            try:
+                count += 1
+                if(count <= final_count):
+                    print(future.result())
+                else:
+                    print("Majority ACKs received")
+                    log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=value))        
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
     return "Success"
 
 
@@ -83,7 +87,7 @@ def read(key):
     log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :read, :value nil}}\n".format(id=client_id))
     count = 0
     # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession(max_workers=final_count) as session:
+    with FuturesSession(adapter_kwargs={'max_retries' : 0}) as session:
         # Get the item with the latest timestamp
         latest_item = query_all_servers(key, session)
         print(latest_item)
@@ -101,22 +105,18 @@ def read(key):
         request_futures = [session.post(address.rstrip() + "kv/write", json=payload) for address in addresses]
         count=0
         # Handle the calls as they are completed, breaking when the majority number has been reached
-        #server_writing_value = []
-        #log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :invoke, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
         for future in as_completed(request_futures):
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-                #server_writing_value.append(future.result().json())
-            else:
-                print("Majority ACKs received")
-                #server_writing_value = [x['result'] for x in server_writing_value]
-                #if False in server_writing_value:
-                    #log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :fail, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))
-                #    return None
-                #else:
-                    #log_output(str(time.time()) + ' : ' +"{{:process {id}, :type :ok, :f :write, :value {val}}}\n".format(id=client_id, val=latest_item['value']))        
-                break
+            try:
+                count += 1
+                if(count <= final_count):
+                    print(future.result())
+                else:
+                    print("Majority ACKs received")
+                    break
+            except:
+                count -= 1
+                print('Server unavailable.')
+                continue
         # Return the latest item's value
         return latest_item['value']
 
@@ -128,8 +128,8 @@ def log_output(log):
 while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
-    # message = 4  # Take in the option for process to be executed
-    message = 4
+    # Take in the option for process to be executed
+    message = 5
 
     if 0 < message < 6:
 
@@ -137,23 +137,13 @@ while True:
             # Input for key,value to be stored/ updated at datastore
             key = input("Enter key name: ")
             value = input("Enter value/message to be stored against key: ")
-            log_output("{{:process {id}, :type :invoke, :f write, :value {val}}}".format(id=client_id, val=value))
             status = write(key, value)
-            if status:
-                log_output("{{:process {id}, :type :ok, :f write, :value {val}}}".format(id=client_id, val=value))
-            else:
-                log_output("{{:process {id}, :type :fail, :f write, :value {val}}}".format(id=client_id, val=value))
             print(status)
 
         elif message == 2:
             # Enter key for search at data store
             key = input("Enter key name to be read: ")
-            log_output("{{:process {id}, :type :invoke, :f read, :value nil}}".format(id=client_id))
             value = read(key)
-            if value:
-                log_output("{{:process {id}, :type :ok, :f read, :value {val}}}".format(id=client_id, val=value))
-            else:
-                log_output("{{:process {id}, :type :fail, :f read, :value nil}}".format(id=client_id))
             print("Value read for Key: ", key, " is Value: ", value)
 
         elif message == 3:
@@ -175,34 +165,43 @@ while True:
             break
 
         elif message == 5:
-            latency = []
-            op = 1
+            latency_read = []
+            latency_write = []
+            throughput_file = open("throughput_out.csv", 'a+')
+            read_latency_file = open("read_latency_out.csv", 'a+')
+            write_latency_file = open("write_latency_out.csv", 'a+')
             perf_time_start = time.time()
-            num_requests = int(input("Enter number of requests to be made by client {0}: ".format(client_id)))
-            for i in range(num_requests):
-                if op == 1:
+            num_requests = 50
+            options = [2]*(int(0.9*num_requests))
+            options.extend([1]*(num_requests - len(options)))
+            random.shuffle(options)
+            options[0] = 1
+            for opt in options:
+                if opt == 1:
                     value = random.randrange(1, 1000)
                     lat_start = time.time()
-                    status = write('test1', value)
+                    status = write('test2', value)
                     lat_end = time.time()
-                    latency.append(lat_end - lat_start)
+                    latency_write.append(lat_end - lat_start)
                     print(status)
                 else:
                     lat_start = time.time()
-                    value = read("test1")
+                    value = read("test2")
                     lat_end = time.time()
-                    latency.append(lat_end - lat_start)
+                    latency_read.append(lat_end - lat_start)
                     print("Value read for Key: ", "test", " is Value: ", value)
-                op = random.choice([1, 2])
             perf_time_end = time.time()
             throughput = num_requests/(perf_time_end-perf_time_start)
-            latency = sorted(latency)
-            if len(latency) % 2 == 0:
-                median = (latency[int(len(latency)/2)] + latency[int((len(latency)/2)+1)])/2
-            else:
-                median = latency[int(math.ceil(len(latency)/2))]
-            print("System throughput at client {0}: {1}".format(client_id, throughput))
-            print("Median latency is: {0}, and 95th percentile is {1}".format(median, latency[int(math.ceil(len(latency)*0.95))]))
-            print(latency)
+            latency_write = sorted(latency_write)
+            latency_read = sorted(latency_read)
+            throughput_file.write("{0:.4f}, ".format(perf_time_end-perf_time_start))
+            for item in latency_read:
+                read_latency_file.write("{0:.4f}, ".format(item))
+            for item in latency_write:
+                write_latency_file.write("{0:.4f}, ".format(item))
+            # print("System throughput at client {0}: {1}".format(client_id, throughput))
+            # print("Median latency is: {0}, and 95th percentile is {1}".format(median, latency[int(math.ceil(len(latency)*0.95))]))
+            # print(latency)
+            break
     else:
         print("Invalid Option, try again")

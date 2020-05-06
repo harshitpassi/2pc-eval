@@ -3,10 +3,10 @@ from requests_futures.sessions import FuturesSession
 import math, random, time
 
 # Hardcoded per client unique ID
-client_id = 9
+client_id = 3
 
 # Read the config file for a list of addresses for all the servers
-f = open("config", "r", encoding="utf-8")
+f = open("../../config", "r", encoding="utf-8")
 addresses = f.readlines()
 num_servers = len(addresses)
 final_count = 0

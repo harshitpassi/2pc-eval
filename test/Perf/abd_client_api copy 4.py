@@ -3,10 +3,10 @@ from requests_futures.sessions import FuturesSession
 import math, random, time, csv
 
 # Hardcoded per client unique ID
-client_id = 1
+client_id = 4
 
 # Read the config file for a list of addresses for all the servers
-f = open("config", "r", encoding="utf-8")
+f = open("../../config", "r", encoding="utf-8")
 addresses = f.readlines()
 num_servers = len(addresses)
 final_count = 0
@@ -129,7 +129,7 @@ while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
     # Take in the option for process to be executed
-    message = int(input())
+    message = 5
 
     if 0 < message < 6:
 
@@ -171,7 +171,7 @@ while True:
             read_latency_file = open("read_latency_out.csv", 'a+')
             write_latency_file = open("write_latency_out.csv", 'a+')
             perf_time_start = time.time()
-            num_requests = int(input('\n Enter number of requests to send:'))
+            num_requests = 50
             options = [2]*(int(0.9*num_requests))
             options.extend([1]*(num_requests - len(options)))
             random.shuffle(options)
