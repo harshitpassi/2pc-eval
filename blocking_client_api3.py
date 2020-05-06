@@ -206,7 +206,8 @@ while True:
     print("Enter what you would like to do: ")
     print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
     # Take in the option for process to be executed
-    message = int(input())
+    #message = int(input())
+    message = 5
 
     if 0 < message < 6:
 
