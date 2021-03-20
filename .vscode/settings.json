@@ -1,3 +1,5 @@
 {
-    "python.pythonPath": "/Users/harshitpassi/Documents/Projects/2pceval/2pc-eval/venv/bin/python3.9"
+    "python.pythonPath": "/Users/harshitpassi/Documents/Projects/2pceval/2pc-eval/venv/bin/python3.9",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true
 }
