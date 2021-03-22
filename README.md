@@ -1,4 +1,4 @@
-# CSE511 Spring'20 - Linearizable Key-Value Stores
+# CSE541 Spring'21 - Two-Phase Commit Data Store
 
 ## To run
 1. Make sure Python 3 and pipenv are installed on your system.
