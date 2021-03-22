@@ -4,12 +4,14 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+autopep8 = "*"
 
 [packages]
 bottle = "*"
 pymongo = "*"
 dnspython = "*"
 requests-futures = "*"
+autopep8 = "*"
 
 [requires]
 python_version = "3.9"
