@@ -183,36 +183,37 @@ while True:
     print(" 1. Begin Transaction \n 2. Read a key value \n 3. Exit ")
     # Take in the option for process to be executed
     message1 = int(input())
-    print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Commit Transaction \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
-    message = int(input())
-    if 0 < message < 6:
-        if message == 1:
-            # Input for key,value to be stored/ updated at datastore
-            key = input("Enter key name: ")
-            value = input("Enter value/message to be stored against key: ")
-            status = write(key, value)
-            # None returned (locked) retry writes with backoff
-            if not status:
-                status = retry_with_backoff(write, key, value)
+    while message1!=3:    
+        print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Commit Transaction \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
+        message = int(input())
+        if 0 < message < 6:
+            if message == 1:
+                # Input for key,value to be stored/ updated at datastore
+                key = input("Enter key name: ")
+                value = input("Enter value/message to be stored against key: ")
+                status = write(key, value)
+                # None returned (locked) retry writes with backoff
                 if not status:
-                    print("Operation unsucessful")
+                    status = retry_with_backoff(write, key, value)
+                    if not status:
+                        print("Operation unsucessful")
+                    else:
+                        print(status)
                 else:
                     print(status)
-            else:
-                print(status)
-        elif message == 2:
-            # Enter key for search at data store
-            key = input("Enter key name to be read: ")
-            value = read(key)
-            # Read unsuccessful, retry reads with backoff
-            if not value:
-                value = retry_with_backoff(read, key)
+            elif message == 2:
+                # Enter key for search at data store
+                key = input("Enter key name to be read: ")
+                value = read(key)
+                # Read unsuccessful, retry reads with backoff
                 if not value:
-                    print("Operation unsucessful")
+                    value = retry_with_backoff(read, key)
+                    if not value:
+                        print("Operation unsucessful")
+                    else:
+                        print("Value read for Key: ", key, " is Value: ", value)
                 else:
                     print("Value read for Key: ", key, " is Value: ", value)
-            else:
-                print("Value read for Key: ", key, " is Value: ", value)
-        elif message == 3:
-            print("Transaction successfully committed.")
-            break
+            elif message == 3:
+                print("Transaction successfully committed.")
+                break
