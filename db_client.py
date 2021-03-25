@@ -180,8 +180,10 @@ def read(key):
 
 while True:
     print("Enter what you would like to do: ")
-    print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Exit \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
+    print(" 1. Begin Transaction \n 2. Read a key value \n 3. Exit ")
     # Take in the option for process to be executed
+    message1 = int(input())
+    print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Commit Transaction \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
     message = int(input())
     if 0 < message < 6:
         if message == 1:
@@ -212,5 +214,5 @@ while True:
             else:
                 print("Value read for Key: ", key, " is Value: ", value)
         elif message == 3:
-            print("End of execution session")
+            print("Transaction successfully committed.")
             break
