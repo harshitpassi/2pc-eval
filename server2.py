@@ -214,4 +214,4 @@ def release_write_lock():
     #logger.info(lock_map)
     return {'result': True}
 
-run(host='0.0.0.0', port=8080)
+run(host='0.0.0.0', port=8082)

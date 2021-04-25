@@ -1,10 +1,13 @@
-from concurrent.futures import as_completed
+from concurrent.futures import as_completed, ThreadPoolExecutor
 from requests_futures.sessions import FuturesSession
 from utilities import retry_with_backoff
 import math
 import random
 import time
 import csv
+import requests
+import threading
+import functools
 
 # Asking for unique client ID
 print("Enter client ID:")
@@ -16,204 +19,282 @@ addresses = f.readlines()
 num_servers = len(addresses)
 final_count = 0
 
-# Address to be referred for current transaction
-refer_address = []
-
-# Initialize the count of the majority quorum needed for operations
+# Initialize the count of the majority quorum needed for locking/unlocking
 if(num_servers % 2 == 0):
     final_count = num_servers / 2 + 1
 else:
     final_count = math.ceil(num_servers / 2)
 
 # Handler function to release acquired locks
-
-
-def release_all_locks(key_list, session):
-    # Release locks
-    unlock_payload = {
-        'keys': key_list
-    }
-    unlock_futures = [
-        session.post(
-            address.rstrip() +
-            "kv/release_locks/",
-            json=unlock_payload) for address in addresses]
-    count = 0
-    for future in as_completed(unlock_futures):
-        try:
-            count += 1
-            if(count <= final_count):
-                print(future.result())
-            else:
-                print("Majority ACKs received")
-                break
-        except BaseException:
-            count -= 1
-            print('Server unavailable.')
-            continue
-    refer_address.clear()
+def release_all_locks(key_list, id):
+    with FuturesSession(adapter_kwargs={'max_retries': 0}) as session:
+        # Release locks
+        unlock_payload = {
+            'id':id,
+            'keys': key_list
+        }
+        unlock_futures = [
+            session.post(
+                address.rstrip() +
+                "kv/release_locks/",
+                json=unlock_payload) for address in addresses]
+        count = 0
+        for future in as_completed(unlock_futures):
+            try:
+                count += 1
+                if(count <= final_count):
+                    pass
+                    #print(future.result())
+                else:
+                    #print("Majority ACKs received")
+                    break
+            except BaseException:
+                count -= 1
+                print('Server unavailable.')
+                continue
+        #refer_address = None
 
 # Try to acquire locks from a majority of servers, return addresses of
 # servers that have granted locks if granted, None otherwise
-
-
-def acquire_locks(key_list, session):
-    lock_payload = {
-        'id': client_id,
-        'keys': key_list
-    }
-    count = 0
-    server_granting_locks = []
-    lock_futures = [
-        session.post(
-            address.rstrip() +
-            "kv/acquire_locks/",
-            json=lock_payload) for address in addresses]
-    # Handle the calls as they are completed, breaking when the majority
-    # number has been reached
-    for future in as_completed(lock_futures):
-        try:
-            count += 1
-            if(count <= final_count):
-                server_granting_locks.append(future.result().json())
-                print(future.result().json())
-            else:
-                break
-        except BaseException:
-            count -= 1
-            print('Server unavailable.')
-            continue
-    server_granting_locks = [x['result'] for x in server_granting_locks]
-    if False in server_granting_locks:
-        print('Unable to acquire lock from majority. Please try again.')
-        # Release locks
-        release_all_locks(key_list, session)
-        refer_address.append(None)
-    majority_addresses = []
-    for index in server_granting_locks:
-        majority_addresses.append(addresses[index - 1])
-    refer_address.append(majority_addresses[0])
-
-
-def write(key, value):
-    # Initialize future session for creating asynchronous HTTP calls
+def acquire_locks(key_list, id):
     with FuturesSession(adapter_kwargs={'max_retries': 0}) as session:
-        # Acquire write locks from majority and save their server IDs in an
-        # array
-        key_list = []
-        key_list.append(key)
-        acquire_locks(key_list, session)
-
-        if refer_address[0] is None:
-            return None
-
-        # Create a request payload
-        payload = {
-            'key': key,
-            'value': value
+        lock_payload = {
+            'id': id,
+            'keys': key_list
         }
-
-        # Initialize list of write API calls, to send updated values to all
-        # servers, sent simultaneously
-        request_futures = [
-            session.post(
-                address.rstrip() + "kv/write",
-                json=payload) for address in refer_address]
-        # Receive responses from majority servers
         count = 0
-        # Break after receiving responses from the majority quorum
-        for future in as_completed(request_futures):
+        server_granting_locks = []
+        lock_futures = [
+            session.post(
+                address.rstrip() +
+                "kv/acquire_locks/",
+                json=lock_payload) for address in addresses]
+        # Handle the calls as they are completed, breaking when the majority
+        # number has been reached
+        for future in as_completed(lock_futures):
             try:
                 count += 1
-                if(count <= 1):
-                    print(future.result())
+                if(count <= final_count):
+                    server_granting_locks.append(future.result().json())
+                    #print(future.result().json())
                 else:
-                    print("Majority ACKs received")
                     break
             except BaseException:
                 count -= 1
                 print('Server unavailable.')
                 continue
-        # Release locks
-        release_all_locks(key_list, session)
+        server_granting_locks = [x['result'] for x in server_granting_locks]
+        if False in server_granting_locks:
+            #print('Unable to acquire lock from majority. Please try again.')
+            # Release locks
+            release_all_locks(key_list, id)
+            return None
+        majority_addresses = []
+        for index in server_granting_locks:
+            majority_addresses.append(addresses[index - 1])
+        #print('REFER ADDRESS: {}'.format(majority_addresses[0]))
+        return majority_addresses[0]
+
+def begin_transaction(transaction_address):
+    if transaction_address is None:
+        return None
+    #print(transaction_address)
+    final_address = transaction_address.rstrip()+"kv/begin_transaction"
+    response=requests.get(final_address)
+    #print(response.json())
+    return response.json()
+
+def commit_transaction(transaction_address):
+    if transaction_address is None:
+        return None
+    response=requests.get(transaction_address.rstrip() + "kv/commit_transaction")
+    #print(response.json())
+    return response.json()
+
+
+def write(key, value, transaction_address):
+    if transaction_address is None:
+        return None
+    # Create a request payload
+    payload = {
+        'key': key,
+        'value': value
+    }
+    # Send write request
+    response = requests.post(transaction_address.rstrip() + "kv/write", json=payload)
+    # Break after receiving responses from the majority quorum
+    #print(response.json())
     return "Success"
 
 
-def read(key):
-    # Initialize future session for creating asynchronous HTTP calls
-    with FuturesSession(adapter_kwargs={'max_retries': 0}) as session:
-
-        # Acquire read locks from majority and save their server IDs in an
-        # array
-        key_list = []
-        key_list.append(key)
-        acquire_locks(key_list, session)
-
-        if refer_address[0] is None:
-            return None
-
-        # Initialize list of read API calls, to send updated values to all
-        # servers, sent simultaneously
-        response_futures = [
-            session.get(
-                address.rstrip() +
-                "kv/read/{}".format(key)) for address in refer_address]
-        # Receive responses from majority servers
-        count = 0
-        result = ''
-        # Break after receiving responses from the majority quorum
-        for future in as_completed(response_futures):
-            try:
-                count += 1
-                if(count <= 1):
-                    result = future.result().json()
-                else:
-                    print("Majority ACKs received")
-                    break
-            except BaseException:
-                count -= 1
-                print('Server unavailable.')
-                continue
-        # Release locks
-        release_all_locks(key_list, session)
+def read(key, transaction_address):
+    if transaction_address is None:
+        return None
+    # Send read response
+    response=requests.get(transaction_address.rstrip() + "kv/read/{}".format(key))
+    # Receive responses from majority servers
+    result = response.json()
     return result
+
+latency_val = []
+
+def perf_run(thread_num):
+    global latency_val
+    count = 0
+    key_list = []
+    from_account = "1"
+    to_account = "2"
+
+    key_list.append(from_account)
+    key_list.append(to_account)
+
+    t_start = time.perf_counter()
+
+    transaction_address = acquire_locks(key_list, thread_num)
+    if not transaction_address:
+        transaction_address = retry_with_backoff(acquire_locks, key_list, thread_num)
+    begin_transaction(transaction_address)
+
+    from_current_balance = int(read(from_account, transaction_address))
+    to_current_balance = int(read(to_account, transaction_address))
+
+    from_newval = from_current_balance - 1
+    to_newval = to_current_balance + 1
+
+    write(from_account, str(from_newval), transaction_address)
+    write(to_account, str(to_newval), transaction_address)
+
+    commit_transaction(transaction_address)
+    release_all_locks(key_list, thread_num)
+
+    t_end = time.perf_counter()
+    with threading.Lock():
+        latency_val.append((t_end - t_start)*1000)
+    #print(latency_val)
+
+
+def thread_helper(thread_num):
+    print("Thread {} started!".format(thread_num))
+    for index in range(10):
+        perf_run(thread_num)
+    print("Thread {} done!".format(thread_num))
+
+def percentile(N, percent, key=lambda x:x):
+    """
+    Find the percentile of a list of values.
+
+    @parameter N - is a list of values. Note N MUST BE already sorted.
+    @parameter percent - a float value from 0.0 to 1.0.
+    @parameter key - optional key function to compute value from each element of N.
+
+    @return - the percentile of the values
+    """
+    if not N:
+        return None
+    k = (len(N)-1) * percent
+    f = math.floor(k)
+    c = math.ceil(k)
+    if f == c:
+        return key(N[int(k)])
+    d0 = key(N[int(f)]) * (c-k)
+    d1 = key(N[int(c)]) * (k-f)
+    return d0+d1
+
+
+
 
 while True:
     print("Enter what you would like to do: ")
-    print(" 1. Begin Transaction \n 2. Read a key value \n 3. Exit ")
+    print(" 1. Begin Transaction \n 2. Single Threaded Performance Test \n 3. Multithreaded Performance Test \n 4. Exit \n ")
     # Take in the option for process to be executed
     message1 = int(input())
-    while message1!=3:    
-        print(" 1. Store/update a key,value \n 2. Read a key value \n 3. Commit Transaction \n 4. Random Run \n 5. Throughput and Latency Evaluation ")
-        message = int(input())
-        if 0 < message < 6:
-            if message == 1:
-                # Input for key,value to be stored/ updated at datastore
-                key = input("Enter key name: ")
-                value = input("Enter value/message to be stored against key: ")
-                status = write(key, value)
-                # None returned (locked) retry writes with backoff
-                if not status:
-                    status = retry_with_backoff(write, key, value)
-                    if not status:
-                        print("Operation unsucessful")
-                    else:
-                        print(status)
-                else:
-                    print(status)
-            elif message == 2:
-                # Enter key for search at data store
-                key = input("Enter key name to be read: ")
-                value = read(key)
-                # Read unsuccessful, retry reads with backoff
-                if not value:
-                    value = retry_with_backoff(read, key)
-                    if not value:
-                        print("Operation unsucessful")
-                    else:
-                        print("Value read for Key: ", key, " is Value: ", value)
-                else:
+    transaction_address=''
+    while message1 != 4:
+        if message1 == 1:
+            print(" 1. Transfer Money \n 2. View Account Balance \n")
+            message = int(input())
+            key = ''
+            key_list = []
+            if 0 < message < 3:
+                if message == 1:
+                    print('Beginning transaction')
+
+                    # User Input for Account Numbers
+                    from_account = input("Enter your Account Number: ")
+                    to_account = input("Enter Recipient Account Number: ")
+
+                    #Preparing lock acquisition request
+                    key_list.append(from_account)
+                    key_list.append(to_account)
+
+                    # Acquire locks and begin transaction
+                    transaction_address = acquire_locks(key_list, client_id)
+                    begin_transaction(transaction_address)
+
+                    # fetch current balance
+                    from_current_balance = int(read(from_account, transaction_address))
+                    print("Your current account balance is: ${}".format(from_current_balance))
+                    to_current_balance = int(read(to_account, transaction_address))
+
+                    transfer = int(input("How much do you want to transfer to Account Number {}? $".format(to_account)))
+
+                    from_newval = from_current_balance - transfer
+                    to_newval = to_current_balance + transfer
+
+                    write(from_account, str(from_newval), transaction_address)
+                    write(to_account, str(to_newval), transaction_address)
+
+                    print('Committing transaction')
+                    print(commit_transaction(transaction_address))
+
+                    print('Releasing locks')
+                    release_all_locks(key_list, client_id)
+                    print("Transaction successfully committed.")
+                elif message == 2:
+                    # Enter key for search at data store
+                    key = input("Enter your account number: ")
+                    value = read(key, transaction_address)
                     print("Value read for Key: ", key, " is Value: ", value)
-            elif message == 3:
-                print("Transaction successfully committed.")
-                break
+                else:
+                    print("Invalid input")
+                    break
+        elif message1 == 2:
+            latency_val.clear()
+            while len(latency_val) != 1000:
+                perf_run()
+            throughput = 1000/(sum(latency_val)/1000)
+            print("Throughput: {}".format(throughput))
+            print("Minimum latency: {}".format(min(latency_val)))
+            print("Maximum latency: {}".format(max(latency_val)))
+            print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
+            latency_val.sort()
+            perc_95 = functools.partial(percentile, percent=0.95)
+            perc_99 = functools.partial(percentile, percent=0.99)
+            print("95th percentile latency: {}".format(perc_95(latency_val)))
+            print("99th percentile latency: {}".format(perc_99(latency_val)))
+            break
+        elif message1 == 3:
+            latency_val.clear()
+            threads = list()
+            th_start = time.perf_counter()
+            for index in range(5):
+                x = threading.Thread(target=thread_helper, args=(index,))
+                threads.append(x)
+                x.start()
+            for thread in threads:
+                thread.join()
+            th_end = time.perf_counter()
+            throughput = 50/(th_end-th_start)
+            print("Throughput: {}".format(throughput))
+            print("Minimum latency: {}".format(min(latency_val)))
+            print("Maximum latency: {}".format(max(latency_val)))
+            print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
+            latency_val.sort()
+            perc_95 = functools.partial(percentile, percent=0.95)
+            perc_99 = functools.partial(percentile, percent=0.99)
+            print("95th percentile latency: {}".format(perc_95(latency_val)))
+            print("99th percentile latency: {}".format(perc_99(latency_val)))
+            break
+        elif message1 == 4:
+            break
+

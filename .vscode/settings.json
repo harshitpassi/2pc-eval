@@ -1,6 +1,7 @@
 {
-    "python.pythonPath": "/Users/harshitpassi/Documents/Projects/2pceval/2pc-eval/venv/bin/python3.9",
+    "python.pythonPath": "/Users/harshitpassi/.local/share/virtualenvs/2pc-eval-CThy5j58/bin/python",
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
-    "python.linting.lintOnSave": true
+    "python.linting.lintOnSave": true,
+    "python.formatting.provider": "autopep8"
 }

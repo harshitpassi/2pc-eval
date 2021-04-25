@@ -4,16 +4,12 @@ from time import sleep
 
 
 # Hihger order function for backoff
-def retry_with_backoff(meth, key, value=None):
-    attempts = int(input("Enter number of times operation should be re-attempted with backoff: "))
-    for i in range(attempts):
-        # Write case
-        if value:
-            status = meth(key, value)
-        # Read case
-        else:
-            status = meth(key)
-        if status:
+def retry_with_backoff(meth, key_list, id):
+    count = 0
+    while True:
+        status = meth(key_list, id)
+        if status != None:
             return status
-        sleep(i*1)
+        count += 1
+        sleep(count*0.01)
     return None
