@@ -9,30 +9,29 @@ import threading
 import functools
 import pymongo
 
-client = pymongo.MongoClient('35.197.86.48', replicaset='rs0')
+client = pymongo.MongoClient('35.197.86.48:27017', replicaset='rs0')
 db = client.bank
 collection = db.accounts
 
 
 latency_val = []
 
-def perf_run():
+def perf_run(session):
     global latency_val
     global client
     global db
     global collection
     
     t_start = time.perf_counter()
-    with client.start_session() as session:
-        with session.start_transaction():
-            from_account = {"number": 1}
-            to_account = {"number": 2}
+    with session.start_transaction():
+        from_account = {"number": 1}
+        to_account = {"number": 2}
 
-            from_update = { "$inc": { "balance": -1 } }
-            to_update = { "$inc": { "balance": 1 } }
+        from_update = { "$inc": { "balance": -1 } }
+        to_update = { "$inc": { "balance": 1 } }
 
-            collection.update_one(from_account, from_update)
-            collection.update_one(to_account, to_update)
+        collection.update_one(from_account, from_update)
+        collection.update_one(to_account, to_update)
     t_end = time.perf_counter()
     with threading.Lock():
         latency_val.append((t_end - t_start)*1000)
@@ -41,8 +40,9 @@ def perf_run():
 
 def thread_helper(thread_num):
     print("Thread {} started!".format(thread_num))
-    for index in range(10):
-        perf_run()
+    with client.start_session() as session:
+        for index in range(10):
+            perf_run(session)
     print("Thread {} done!".format(thread_num))
 
 def percentile(N, percent, key=lambda x:x):
@@ -76,19 +76,20 @@ while True:
     message1 = int(input())
     while message1 < 3:
         if message1 == 1:
-            latency_val.clear()
-            while len(latency_val) != 1000:
-                perf_run()
-            throughput = 1000/(sum(latency_val)/1000)
-            print("Throughput: {}".format(throughput))
-            print("Minimum latency: {}".format(min(latency_val)))
-            print("Maximum latency: {}".format(max(latency_val)))
-            print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
-            latency_val.sort()
-            perc_95 = functools.partial(percentile, percent=0.95)
-            perc_99 = functools.partial(percentile, percent=0.99)
-            print("95th percentile latency: {}".format(perc_95(latency_val)))
-            print("99th percentile latency: {}".format(perc_99(latency_val)))
+            with client.start_session() as session:
+                latency_val.clear()
+                while len(latency_val) != 1000:
+                    perf_run(session)
+                throughput = 1000/(sum(latency_val)/1000)
+                print("Throughput: {}".format(throughput))
+                print("Minimum latency: {}".format(min(latency_val)))
+                print("Maximum latency: {}".format(max(latency_val)))
+                print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
+                latency_val.sort()
+                perc_95 = functools.partial(percentile, percent=0.95)
+                perc_99 = functools.partial(percentile, percent=0.99)
+                print("95th percentile latency: {}".format(perc_95(latency_val)))
+                print("99th percentile latency: {}".format(perc_99(latency_val)))
             break
         elif message1 == 2:
             latency_val.clear()
