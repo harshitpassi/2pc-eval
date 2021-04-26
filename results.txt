@@ -1,0 +1,40 @@
+Mongo
+
+5 threads:
+Throughput: 74.87347073404977
+Minimum latency: 64.989118000085
+Maximum latency: 133.43383699975675
+Average latency: 66.76941296179308
+95th percentile latency: 68.17552614998021
+99th percentile latency: 68.98960490982063
+
+Single:
+Throughput: 14.988894330864742
+Minimum latency: 65.96225100020092
+Maximum latency: 131.91284399999859
+Average latency: 66.7160617671996
+95th percentile latency: 67.12224534990128
+99th percentile latency: 67.33206001991675
+
+
+
+
+
+2PC
+
+5 threads:
+Throughput: 1.9163175567294468
+Minimum latency: 549.5287209996604
+Maximum latency: 108288.46758299915
+Average latency: 2448.0895150381934
+95th percentile latency: 8934.108916099787
+99th percentile latency: 22928.48820460075
+
+Single:
+
+Throughput: 1.777457891122471
+Minimum latency: 548.1285450005089
+Maximum latency: 10049.177005999809
+Average latency: 562.5918798984243
+95th percentile latency: 559.226113350087
+99th percentile latency: 561.5680821493515
