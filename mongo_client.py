@@ -86,9 +86,11 @@ while True:
         if message1 == 1:
             with client.start_session() as session:
                 latency_val.clear()
+                th_start = time.perf_counter()
                 while len(latency_val) != 5000:
                     perf_run(session)
-                throughput = 5000/(sum(latency_val)/1000)
+                th_end = time.perf_counter()
+                throughput = 5000/(th_end-th_start)
                 print("Throughput: {}".format(throughput))
                 print("Minimum latency: {}".format(min(latency_val)))
                 print("Maximum latency: {}".format(max(latency_val)))
