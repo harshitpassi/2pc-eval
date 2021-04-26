@@ -269,7 +269,7 @@ while True:
             latency_val.clear()
             th_start = time.perf_counter()
             while len(latency_val) != 5000:
-                perf_run()
+                perf_run(client_id)
             th_end = time.perf_counter()
             throughput = 5000/(th_end-th_start)
             print("Throughput: {}".format(throughput))
