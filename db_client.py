@@ -175,7 +175,7 @@ def perf_run(thread_num):
 
 def thread_helper(thread_num):
     print("Thread {} started!".format(thread_num))
-    for index in range(10):
+    for index in range(1000):
         perf_run(thread_num)
     print("Thread {} done!".format(thread_num))
 
@@ -199,6 +199,13 @@ def percentile(N, percent, key=lambda x:x):
     d0 = key(N[int(f)]) * (c-k)
     d1 = key(N[int(c)]) * (k-f)
     return d0+d1
+
+def write_output(name):
+    global latency_val
+    with open(name, 'w') as f:
+        write = csv.writer(f)
+        write.writerow(range(len(latency_val)))
+        write.writerow(latency_val)
 
 
 
@@ -260,9 +267,11 @@ while True:
                     break
         elif message1 == 2:
             latency_val.clear()
-            while len(latency_val) != 1000:
+            th_start = time.perf_counter()
+            while len(latency_val) != 5000:
                 perf_run()
-            throughput = 1000/(sum(latency_val)/1000)
+            th_end = time.perf_counter()
+            throughput = 5000/(th_end-th_start)
             print("Throughput: {}".format(throughput))
             print("Minimum latency: {}".format(min(latency_val)))
             print("Maximum latency: {}".format(max(latency_val)))
@@ -270,6 +279,7 @@ while True:
             latency_val.sort()
             perc_95 = functools.partial(percentile, percent=0.95)
             perc_99 = functools.partial(percentile, percent=0.99)
+            write_output('single_thread_2pc')
             print("95th percentile latency: {}".format(perc_95(latency_val)))
             print("99th percentile latency: {}".format(perc_99(latency_val)))
             break
@@ -284,7 +294,7 @@ while True:
             for thread in threads:
                 thread.join()
             th_end = time.perf_counter()
-            throughput = 50/(th_end-th_start)
+            throughput = 5000/(th_end-th_start)
             print("Throughput: {}".format(throughput))
             print("Minimum latency: {}".format(min(latency_val)))
             print("Maximum latency: {}".format(max(latency_val)))
@@ -292,6 +302,7 @@ while True:
             latency_val.sort()
             perc_95 = functools.partial(percentile, percent=0.95)
             perc_99 = functools.partial(percentile, percent=0.99)
+            write_output('multi_threaded_2pc')
             print("95th percentile latency: {}".format(perc_95(latency_val)))
             print("99th percentile latency: {}".format(perc_99(latency_val)))
             break

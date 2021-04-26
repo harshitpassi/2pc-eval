@@ -98,7 +98,7 @@ while True:
                 latency_val.sort()
                 perc_95 = functools.partial(percentile, percent=0.95)
                 perc_99 = functools.partial(percentile, percent=0.99)
-                write_output('Single_Thread')
+                write_output('single_thread_mongo')
                 print("95th percentile latency: {}".format(perc_95(latency_val)))
                 print("99th percentile latency: {}".format(perc_99(latency_val)))
             break
@@ -119,7 +119,7 @@ while True:
             print("Maximum latency: {}".format(max(latency_val)))
             print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
             latency_val.sort()
-            write_output('Single_Thread')
+            write_output('multi_threaded_mongo')
             perc_95 = functools.partial(percentile, percent=0.95)
             perc_99 = functools.partial(percentile, percent=0.99)
             print("95th percentile latency: {}".format(perc_95(latency_val)))
