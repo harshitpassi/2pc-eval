@@ -276,10 +276,10 @@ while True:
             print("Minimum latency: {}".format(min(latency_val)))
             print("Maximum latency: {}".format(max(latency_val)))
             print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
+            write_output('single_thread_2pc')
             latency_val.sort()
             perc_95 = functools.partial(percentile, percent=0.95)
             perc_99 = functools.partial(percentile, percent=0.99)
-            write_output('single_thread_2pc')
             print("95th percentile latency: {}".format(perc_95(latency_val)))
             print("99th percentile latency: {}".format(perc_99(latency_val)))
             break
@@ -299,10 +299,10 @@ while True:
             print("Minimum latency: {}".format(min(latency_val)))
             print("Maximum latency: {}".format(max(latency_val)))
             print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
+            write_output('multi_threaded_2pc')
             latency_val.sort()
             perc_95 = functools.partial(percentile, percent=0.95)
             perc_99 = functools.partial(percentile, percent=0.99)
-            write_output('multi_threaded_2pc')
             print("95th percentile latency: {}".format(perc_95(latency_val)))
             print("99th percentile latency: {}".format(perc_99(latency_val)))
             break

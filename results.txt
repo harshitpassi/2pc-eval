@@ -1,5 +1,4 @@
 Mongo
-
 5 threads:
 Throughput: 74.87347073404977
 Minimum latency: 64.989118000085
@@ -21,7 +20,6 @@ Average latency: 66.7160617671996
 
 
 2PC
-
 5 threads:
 Throughput: 1.9163175567294468
 Minimum latency: 549.5287209996604
@@ -38,3 +36,23 @@ Maximum latency: 10049.177005999809
 Average latency: 562.5918798984243
 95th percentile latency: 559.226113350087
 99th percentile latency: 561.5680821493515
+
+
+
+
+2PC Local
+Single:
+Throughput: 23.346684198210625
+Minimum latency: 21.34966700000973
+Maximum latency: 11159.426834000002
+Average latency: 42.82842936319997
+95th percentile latency: 27.743501749995758
+99th percentile latency: 80.60143176000194
+
+5 threads:
+Throughput: 17.12903307355612
+Minimum latency: 21.61333399999421
+Maximum latency: 33115.708666
+Average latency: 280.52947983780047
+95th percentile latency: 720.412589550009
+99th percentile latency: 4469.862984170084
