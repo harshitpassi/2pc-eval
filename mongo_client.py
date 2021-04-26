@@ -70,7 +70,9 @@ def write_output(name):
     global latency_val
     with open(name, 'w') as f:
         write = csv.writer(f)
-        write.writerows(latency_val)
+        for i in range(len(latency_val)):
+            write.writerow(i)
+        write.writerow(latency_val)
 
 
 
