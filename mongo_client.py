@@ -41,7 +41,7 @@ def perf_run(session):
 def thread_helper(thread_num):
     print("Thread {} started!".format(thread_num))
     with client.start_session() as session:
-        for index in range(10):
+        for index in range(1000):
             perf_run(session)
     print("Thread {} done!".format(thread_num))
 
@@ -66,6 +66,13 @@ def percentile(N, percent, key=lambda x:x):
     d1 = key(N[int(c)]) * (k-f)
     return d0+d1
 
+def write_output(name):
+    global latency_val
+    with open(name, 'w') as f:
+        write = csv.writer(f)
+        write.writerows(latency_val)
+
+
 
 
 
@@ -78,9 +85,9 @@ while True:
         if message1 == 1:
             with client.start_session() as session:
                 latency_val.clear()
-                while len(latency_val) != 1000:
+                while len(latency_val) != 5000:
                     perf_run(session)
-                throughput = 1000/(sum(latency_val)/1000)
+                throughput = 5000/(sum(latency_val)/1000)
                 print("Throughput: {}".format(throughput))
                 print("Minimum latency: {}".format(min(latency_val)))
                 print("Maximum latency: {}".format(max(latency_val)))
@@ -88,6 +95,7 @@ while True:
                 latency_val.sort()
                 perc_95 = functools.partial(percentile, percent=0.95)
                 perc_99 = functools.partial(percentile, percent=0.99)
+                write_output('Single_Thread')
                 print("95th percentile latency: {}".format(perc_95(latency_val)))
                 print("99th percentile latency: {}".format(perc_99(latency_val)))
             break
@@ -102,12 +110,13 @@ while True:
             for thread in threads:
                 thread.join()
             th_end = time.perf_counter()
-            throughput = 50/(th_end-th_start)
+            throughput = 5000/(th_end-th_start)
             print("Throughput: {}".format(throughput))
             print("Minimum latency: {}".format(min(latency_val)))
             print("Maximum latency: {}".format(max(latency_val)))
             print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
             latency_val.sort()
+            write_output('Single_Thread')
             perc_95 = functools.partial(percentile, percent=0.95)
             perc_99 = functools.partial(percentile, percent=0.99)
             print("95th percentile latency: {}".format(perc_95(latency_val)))
