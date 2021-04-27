@@ -1,19 +1,19 @@
 Mongo
 5 threads:
-Throughput: 74.87347073404977
-Minimum latency: 64.989118000085
-Maximum latency: 133.43383699975675
-Average latency: 66.76941296179308
-95th percentile latency: 68.17552614998021
-99th percentile latency: 68.98960490982063
+Throughput: 74.97483506024078
+Minimum latency: 65.09822799853282
+Maximum latency: 133.4216010000091
+Average latency: 66.66613853254805
+95th percentile latency: 67.90167294930143
+99th percentile latency: 68.77538169108448
 
 Single:
-Throughput: 14.988894330864742
-Minimum latency: 65.96225100020092
-Maximum latency: 131.91284399999859
-Average latency: 66.7160617671996
-95th percentile latency: 67.12224534990128
-99th percentile latency: 67.33206001991675
+Throughput: 14.955586890704511
+Minimum latency: 66.07201899896609
+Maximum latency: 159.70739600015804
+Average latency: 66.85540409361472
+95th percentile latency: 67.24548590227641
+99th percentile latency: 67.44575773773249
 
 
 
