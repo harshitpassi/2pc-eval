@@ -75,3 +75,21 @@ Maximum latency: 7974.683364999919
 Average latency: 420.6915478403994
 95th percentile latency: 1376.0190223499653
 99th percentile latency: 2718.240126110147
+
+
+CockroachDB
+5 threads:
+Throughput: 18.662157362090248
+Minimum latency: 4.776091999701748
+Maximum latency: 401.9455000002381
+Average latency: 178.03997105739433
+95th percentile latency: 252.0113167502359
+99th percentile latency: 289.996059219925
+
+Single:
+Throughput: 18.95507833619513
+Minimum latency: 15.37865199998123
+Maximum latency: 107.40479200012487
+Average latency: 35.169993726396704
+95th percentile latency: 47.38716504987225
+99th percentile latency: 64.83236182024488
