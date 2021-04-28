@@ -124,7 +124,7 @@ while True:
             throughput = 5000/(th_end-th_start)
             print("Throughput: {}".format(throughput))
             print("Minimum latency: {}".format(min(latency_val)))
-            print("Maximum latency: {}".format(max(latency_val)))2
+            print("Maximum latency: {}".format(max(latency_val)))
             print("Average latency: {}".format(sum(latency_val)/len(latency_val)))
             write_output('multi_threaded_yuga')
             latency_val.sort()
