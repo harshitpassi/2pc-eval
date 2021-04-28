@@ -93,3 +93,21 @@ Maximum latency: 107.40479200012487
 Average latency: 35.169993726396704
 95th percentile latency: 47.38716504987225
 99th percentile latency: 64.83236182024488
+
+
+YugaByteDB
+Single:
+Throughput: 25.218950781260972
+Minimum latency: 37.2890789876692
+Maximum latency: 225.029816996539
+Average latency: 39.641534184111514
+95th percentile latency: 43.08594010508387
+99th percentile latency: 53.71912632632304
+
+5 threads:
+Throughput: 36.58828243941477
+Minimum latency: 36.79582301992923
+Maximum latency: 1085.0329649983905
+Average latency: 109.74461814056849
+95th percentile latency: 286.2832091006567
+99th percentile latency: 407.6714182444269
