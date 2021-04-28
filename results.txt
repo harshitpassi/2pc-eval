@@ -56,3 +56,22 @@ Maximum latency: 33115.708666
 Average latency: 280.52947983780047
 95th percentile latency: 720.412589550009
 99th percentile latency: 4469.862984170084
+
+
+Azure Single Thread:
+
+Throughput: 14.924892406751672
+Minimum latency: 58.99401600004239
+Maximum latency: 717.8439220000428
+Average latency: 66.99228448859961
+95th percentile latency: 77.92640309994569
+99th percentile latency: 83.00616275003792
+
+Azure 5 threads:
+
+Throughput: 11.205303963797451
+Minimum latency: 59.818602999939685
+Maximum latency: 7974.683364999919
+Average latency: 420.6915478403994
+95th percentile latency: 1376.0190223499653
+99th percentile latency: 2718.240126110147
