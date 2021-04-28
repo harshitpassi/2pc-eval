@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Test psycopg with CockroachDB.
+CockroachDB script for 2pc-eval.
+Script template was takem from the CockroachDB documentation..
 """
 
 import time
@@ -264,14 +265,6 @@ For cockroach demo, use
 with the username and password created in the demo cluster, and the hostname
 and port listed in the (sql/tcp) connection parameters of the demo cluster
 welcome message.
-
-For CockroachCloud Free, use
-'postgres://<username>:<password>@free-tier.gcp-us-central1.cockroachlabs.cloud:26257/<cluster-name>.bank?sslmode=verify-full&sslrootcert=<your_certs_directory>/cc-ca.crt'.
-
-If you are using the connection string copied from the Console, your username,
-password, and cluster name will be pre-populated. Replace
-<your_certs_directory> with the path to the 'cc-ca.crt' downloaded from the
-Console.
 
 """
     )
