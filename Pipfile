@@ -13,6 +13,8 @@ dnspython = "*"
 requests-futures = "*"
 autopep8 = "*"
 requests = "*"
+cython = "*"
+yb-cassandra-driver = "*"
 
 [requires]
 python_version = "3.9"
