@@ -154,9 +154,9 @@ def percentile(N, percent, key=lambda x:x):
     d1 = key(N[int(c)]) * (k-f)
     return d0+d1
 
-def thread_helper(thread_num, conn, fromId, toId, amount):
+def thread_helper(thread_num, conn, fromId, toId, amount, num_runs):
     print("Thread {} started!".format(thread_num))
-    for index in range(1000):
+    for index in range(num_runs):
         run_transaction(conn, lambda conn: transfer_funds(conn, fromId, toId, amount))
         #run_transaction(conn, lambda conn: transfer_funds(conn, toId, fromId, amount))
     print("Thread {} done!".format(thread_num))
@@ -190,12 +190,13 @@ def main():
         while message1 < 3:
             if message1 == 1:
                 latency_val.clear()
+                num_runs = int(input('How many test runs do you want? '))
                 th_start = time.perf_counter()
-                while len(latency_val) != 5000:
+                while len(latency_val) != num_runs:
                     run_transaction(conn, lambda conn: transfer_funds(conn, fromId, toId, amount))
                     #run_transaction(conn, lambda conn: transfer_funds(conn, toId, fromId, amount))
                 th_end = time.perf_counter()
-                throughput = 5000/(th_end-th_start)
+                throughput = num_runs/(th_end-th_start)
                 print("Throughput: {}".format(throughput))
                 #print(len(latency_val))
                 print("Minimum latency: {}".format(min(latency_val)))
@@ -210,16 +211,17 @@ def main():
                 break
             elif message1 == 2:
                 latency_val.clear()
+                num_runs = int(input('How many test runs do you want? (Per Thread) '))
                 threads = list()
                 th_start = time.perf_counter()
                 for index in range(5):
-                    x = threading.Thread(target=thread_helper, args=(index,conn,fromId,toId,amount,))
+                    x = threading.Thread(target=thread_helper, args=(index,conn,fromId,toId,amount,num_runs,))
                     threads.append(x)
                     x.start()
                 for thread in threads:
                     thread.join()
                 th_end = time.perf_counter()
-                throughput = 5000/(th_end-th_start)
+                throughput = (5*num_runs)/(th_end-th_start)
                 print("Throughput: {}".format(throughput))
                 #print(len(latency_val))
                 print("Minimum latency: {}".format(min(latency_val)))
