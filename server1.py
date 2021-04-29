@@ -5,12 +5,12 @@ from requests_futures.sessions import FuturesSession
 import logging
 
 #logging
-#logger = logging.getLogger('myApp')
-#logger.setLevel(logging.INFO)
-#fh = logging.FileHandler('1log.log')
-#formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-#fh.setFormatter(formatter)
-#logger.addHandler(fh) 
+logger = logging.getLogger('myApp')
+logger.setLevel(logging.INFO)
+fh = logging.FileHandler('server_2_log.log')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+logger.addHandler(fh) 
 
 
 
@@ -25,7 +25,7 @@ lock_map = {}
 # Declaring server ID according to config
 print("Enter server ID: (make sure it matches the order in the client config, line: 1 -> server ID:1)")
 server_id = int(input())
-#logger.info("Starting my application.")
+logger.info("Starting my application.")
 
 # Getting addresses of all other servers
 f = open("config", "r", encoding="utf-8")
@@ -43,7 +43,7 @@ def home():
 def init():
     global transaction_buffer
     global data_store
-    #logger.info('Beginning transaction')
+    logger.info('Beginning transaction')
     transaction_buffer.clear()
     transaction_buffer = data_store.copy()
     return {'result': True}
@@ -51,7 +51,7 @@ def init():
 @get('/kv/drop_transaction')
 def drop():
     global transaction_buffer
-    #logger.info('Dropping transaction')
+    logger.info('Dropping transaction')
     transaction_buffer.clear()
     return {'result': True}
 
@@ -60,13 +60,13 @@ def commit():
     global transaction_buffer
     global transaction_id
     global data_store
-    #logger.info('Committing transaction')
+    logger.info('Committing transaction')
     # Initialize future session for creating asynchronous HTTP calls
     with FuturesSession(adapter_kwargs={'max_retries': 0}) as session:
         # increment transaction ID
         transaction_id = transaction_id + 1
         # PHASE 1 : Initialize list of prepare API calls, to prepare other servers for transaction
-        #logger.info('Preparing transaction')
+        logger.info('Preparing transaction')
         response_futures = [
             session.get(
                 address.rstrip() +
@@ -76,44 +76,44 @@ def commit():
         # processing responses as they're received
         for future in as_completed(response_futures):
             try:
-                #logger.info('Prepare response received')
-                #logger.info(future.result().json())
+                logger.info('Prepare response received')
+                logger.info(future.result().json())
                 results.append(future.result().json())
             except BaseException:
-                #logger.info('Servers unavailable.')
+                logger.info('Servers unavailable.')
                 continue
         server_responses = [x['result'] for x in results]
         if False in server_responses:
-            #logger.info('Dropping transactions')
+            logger.info('Dropping transactions')
             response_futures = [
             session.get(
                 address.rstrip() +
                 "kv/drop_transaction") for address in addresses]
             for future in as_completed(response_futures):
                 try:
-                    #logger.info('Dropped at server')
+                    logger.info('Dropped at server')
                     continue
                 except BaseException:
                     continue
-                    #logger.info('Server unavailable')
+                    logger.info('Server unavailable')
             transaction_buffer.clear()
             return {'result': False}
         else:
             # PHASE 2 : create request payload with transaction buffer
-            #logger.info('******************** beginning phase 2')
+            logger.info('******************** beginning phase 2')
             payload =  transaction_buffer
-            #logger.info('+++++++++++ PAYLOAD FOR FINAL COMMIT')
-            #logger.info(payload)
+            logger.info('+++++++++++ PAYLOAD FOR FINAL COMMIT')
+            logger.info(payload)
             request_futures = [
             session.post(
                 address.rstrip() + "kv/final_commit",
                 data=json.dumps(payload)) for address in addresses]
             for future in as_completed(response_futures):
                 try:
-                    #logger.info('Commited at server')
+                    logger.info('Commited at server')
                     continue
                 except BaseException:
-                    #logger.info('Server unavailable')
+                    logger.info('Server unavailable')
                     continue
             data_store.clear()
             data_store = transaction_buffer.copy()
@@ -122,19 +122,19 @@ def commit():
 
 @get('/kv/prepare/<tid>')
 def distributed_prepare(tid):
-    #logger.info('Preparing transaction for TID: {}'.format(tid))
+    logger.info('Preparing transaction for TID: {}'.format(tid))
     return {'result': True}
 
 @post('/kv/final_commit')
 def distributed_commit():
     global data_store
-    #logger.info('+++++++++++++ FINAL COMMIT ++++++++++++++++++++')
+    logger.info('+++++++++++++ FINAL COMMIT ++++++++++++++++++++')
     data = json.loads(request.body.read().decode('utf-8'))
-    #logger.info(data)
+    logger.info(data)
     data_store.clear()
     data_store = data.copy()
-    #logger.info('Final data store is:')
-    #logger.info(data_store)
+    logger.info('Final data store is:')
+    logger.info(data_store)
     return {'result': True}
 
 
@@ -149,7 +149,7 @@ def distributed_commit():
 def create_kv():
     global transaction_buffer
     data = json.loads(request.body.read().decode('utf-8'))
-    #logger.info(data)
+    logger.info(data)
     transaction_buffer[data['key']] = data['value']
     return {'result': True}
 
@@ -211,7 +211,7 @@ def release_write_lock():
         if lock_map.get(k, None) is not None:
             if client_id == lock_map[k]:
                 del lock_map[k]
-    #logger.info(lock_map)
+    logger.info(lock_map)
     return {'result': True}
 
 run(host='0.0.0.0', port=8081)

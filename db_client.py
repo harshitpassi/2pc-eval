@@ -173,9 +173,9 @@ def perf_run(thread_num):
     #print(latency_val)
 
 
-def thread_helper(thread_num):
+def thread_helper(thread_num, num_runs):
     print("Thread {} started!".format(thread_num))
-    for index in range(1000):
+    for index in range(num_runs):
         perf_run(thread_num)
     print("Thread {} done!".format(thread_num))
 
@@ -267,11 +267,12 @@ while True:
                     break
         elif message1 == 2:
             latency_val.clear()
+            num_runs = int(input('How many test runs do you want? '))
             th_start = time.perf_counter()
-            while len(latency_val) != 5000:
+            while len(latency_val) != num_runs:
                 perf_run(client_id)
             th_end = time.perf_counter()
-            throughput = 5000/(th_end-th_start)
+            throughput = num_runs/(th_end-th_start)
             print("Throughput: {}".format(throughput))
             print("Minimum latency: {}".format(min(latency_val)))
             print("Maximum latency: {}".format(max(latency_val)))
@@ -286,15 +287,16 @@ while True:
         elif message1 == 3:
             latency_val.clear()
             threads = list()
+            num_runs = int(input('How many test runs do you want? (Per thread) '))
             th_start = time.perf_counter()
             for index in range(5):
-                x = threading.Thread(target=thread_helper, args=(index,))
+                x = threading.Thread(target=thread_helper, args=(index,num_runs,))
                 threads.append(x)
                 x.start()
             for thread in threads:
                 thread.join()
             th_end = time.perf_counter()
-            throughput = 5000/(th_end-th_start)
+            throughput = (5*num_runs)/(th_end-th_start)
             print("Throughput: {}".format(throughput))
             print("Minimum latency: {}".format(min(latency_val)))
             print("Maximum latency: {}".format(max(latency_val)))
@@ -308,4 +310,5 @@ while True:
             break
         elif message1 == 4:
             break
+    break
 
